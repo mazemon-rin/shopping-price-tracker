@@ -301,6 +301,44 @@ textarea:focus {
   background: #ffffff;
 }
 
+.input-unit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  overflow: hidden;
+  min-height: 50px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fbfbfd;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.02);
+}
+
+.input-unit:focus-within {
+  border-color: var(--accent);
+  background: #ffffff;
+}
+
+.input-unit input {
+  min-height: 48px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.input-unit input:focus {
+  background: transparent;
+}
+
+.input-unit > span {
+  min-width: 46px;
+  padding: 0 14px;
+  color: var(--muted);
+  font-weight: 700;
+  text-align: center;
+  border-left: 1px solid var(--line-soft);
+}
+
 textarea {
   resize: vertical;
 }
