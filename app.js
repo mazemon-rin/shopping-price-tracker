@@ -417,8 +417,13 @@ function renderProductSuggestions() {
   const list = document.getElementById("productSuggestions");
   const input = document.getElementById("quickProductName");
   const query = normalizeProductName(input.value);
+  if (!query) {
+    list.hidden = true;
+    list.innerHTML = "";
+    return;
+  }
   const products = state.products
-    .filter((product) => !query || normalizeProductName(product.name).includes(query))
+    .filter((product) => normalizeProductName(product.name).includes(query))
     .slice(0, 6);
   if (!products.length || document.activeElement !== input) {
     list.hidden = true;
