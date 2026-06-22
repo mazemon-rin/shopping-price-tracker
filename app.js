@@ -86,7 +86,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("priceDate").value = today();
   bindEvents();
   renderBarcodeHelp();
-  updateBarcodeVisibility();
   render();
 });
 
@@ -404,19 +403,6 @@ function updateQuickProductFields() {
 
 function handleQuickProductNameInput() {
   updateQuickProductFields();
-  updateBarcodeVisibility();
-}
-
-function updateBarcodeVisibility() {
-  const hasProductName = Boolean(document.getElementById("quickProductName").value.trim());
-  const actions = document.getElementById("barcodeActions");
-  actions.hidden = !hasProductName;
-  actions.setAttribute("aria-hidden", String(!hasProductName));
-  if (!hasProductName) {
-    stopBarcodeScan();
-    document.getElementById("barcodeStatus").textContent = "";
-    document.getElementById("quickBarcode").value = "";
-  }
 }
 
 function clearNearbyStoreResults() {
@@ -552,7 +538,6 @@ function applyOpenFoodFactsProduct(product) {
   if (grams) document.getElementById("quickProductWeightGrams").value = grams;
   if (category) document.getElementById("quickProductCategory").value = category;
   document.getElementById("quickProductCategory").dataset.userEdited = category ? "true" : "false";
-  updateBarcodeVisibility();
 }
 
 async function startBarcodeScan() {
@@ -850,8 +835,6 @@ function resetQuickForm() {
   document.getElementById("openFoodFactsStatus").textContent = "";
   document.getElementById("nearbyStoreResults").innerHTML = "";
   document.getElementById("nearbyStoreStatus").textContent = "";
-  document.getElementById("barcodeActions").hidden = true;
-  document.getElementById("barcodeActions").setAttribute("aria-hidden", "true");
   document.getElementById("barcodeStatus").textContent = "";
   stopBarcodeScan();
   openFoodFactsCandidates = [];
