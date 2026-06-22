@@ -60,6 +60,7 @@ const OPEN_FOOD_FACTS_BASE_URLS = [
 const state = loadState();
 let openFoodFactsCandidates = [];
 let nearbyStoreCandidates = [];
+let nearbyStorePage = 0;
 let barcodeStream = null;
 let barcodeScanTimer = null;
 let zxingCodeReader = null;
@@ -252,12 +253,13 @@ async function findNearbyStores() {
   status.textContent = "現在地を確認中...";
   results.innerHTML = "";
   nearbyStoreCandidates = [];
+  nearbyStorePage = 0;
   navigator.geolocation.getCurrentPosition(
     async (position) => {
       try {
         status.textContent = "近くのお店を検索中...";
         nearbyStoreCandidates = await fetchNearbyStores(position.coords.latitude, position.coords.longitude);
-        renderNearbyStoreResults(nearbyStoreCandidates);
+        renderNearbyStoreResults();
         status.textContent = nearbyStoreCandidates.length ? `${nearbyStoreCandidates.length}件見つかりました` : "近くのお店候補が見つかりませんでした。";
       } catch {
         status.textContent = "位置情報を取得できませんでした。店舗名を手入力してください。";
@@ -273,14 +275,17 @@ async function findNearbyStores() {
 }
 
 async function fetchNearbyStores(latitude, longitude) {
+  const shopPattern = document.getElementById("nearbyStoreFilter").value === "all"
+    ? "^(supermarket|convenience|chemist|department_store|mall|grocery|discount)$"
+    : "^(supermarket|chemist|department_store|mall|grocery|discount)$";
   const query = `
     [out:json][timeout:12];
     (
-      node["shop"~"^(supermarket|convenience|chemist|department_store|mall|grocery|discount)$"](around:1000,${latitude},${longitude});
-      way["shop"~"^(supermarket|convenience|chemist|department_store|mall|grocery|discount)$"](around:1000,${latitude},${longitude});
-      relation["shop"~"^(supermarket|convenience|chemist|department_store|mall|grocery|discount)$"](around:1000,${latitude},${longitude});
+      node["shop"~"${shopPattern}"](around:500,${latitude},${longitude});
+      way["shop"~"${shopPattern}"](around:500,${latitude},${longitude});
+      relation["shop"~"${shopPattern}"](around:500,${latitude},${longitude});
     );
-    out center tags 20;
+    out center tags 30;
   `;
   const response = await fetch("https://overpass-api.de/api/interpreter", {
     method: "POST",
@@ -291,30 +296,39 @@ async function fetchNearbyStores(latitude, longitude) {
   const data = await response.json();
   return (data.elements || [])
     .map((element) => ({
-      name: element.tags?.name || "",
+      name: buildStoreDisplayName(element.tags || {}),
+      rawName: element.tags?.name || "",
       type: element.tags?.shop || "",
+      address: buildStoreAddress(element.tags || {}),
       lat: element.lat ?? element.center?.lat,
       lon: element.lon ?? element.center?.lon
     }))
     .filter((store) => store.name)
-    .slice(0, 10);
+    .filter(uniqueStoreByNameAndAddress);
 }
 
-function renderNearbyStoreResults(stores) {
+function renderNearbyStoreResults() {
   const results = document.getElementById("nearbyStoreResults");
-  if (!stores.length) {
+  if (!nearbyStoreCandidates.length) {
     results.innerHTML = '<p class="hint">候補がありません。店舗名は手入力できます。</p>';
     return;
   }
-  results.innerHTML = stores.map((store, index) => `
+  const pageSize = 5;
+  const start = nearbyStorePage * pageSize;
+  const stores = nearbyStoreCandidates.slice(start, start + pageSize);
+  const hasNext = start + pageSize < nearbyStoreCandidates.length;
+  results.innerHTML = stores.map((store, index) => {
+    const candidateIndex = start + index;
+    return `
     <div class="candidate-card">
       <div>
         <strong>${escapeHtml(store.name)}</strong>
-        <p>${escapeHtml(formatStoreType(store.type))} / OpenStreetMap</p>
+        <p>${escapeHtml([formatStoreType(store.type), store.address, "OpenStreetMap"].filter(Boolean).join(" / "))}</p>
       </div>
-      <button type="button" class="secondary tiny" onclick="selectNearbyStore(${index})">選択</button>
+      <button type="button" class="secondary tiny" onclick="selectNearbyStore(${candidateIndex})">選択</button>
     </div>
-  `).join("");
+    `;
+  }).join("") + (hasNext ? '<button type="button" class="secondary nearby-next" onclick="showNextNearbyStores()">次へ</button>' : "");
 }
 
 function selectNearbyStore(index) {
@@ -324,6 +338,35 @@ function selectNearbyStore(index) {
   document.getElementById("nearbyStoreStatus").textContent = "店舗名を反映しました。";
   document.getElementById("nearbyStoreResults").innerHTML = "";
   nearbyStoreCandidates = [];
+  nearbyStorePage = 0;
+}
+
+function showNextNearbyStores() {
+  nearbyStorePage += 1;
+  renderNearbyStoreResults();
+}
+
+function buildStoreDisplayName(tags) {
+  const name = tags.name || tags.brand || tags.operator || "";
+  const branch = tags.branch || tags["addr:branch"] || "";
+  if (name && branch && !name.includes(branch)) return `${name} ${branch}`;
+  return name;
+}
+
+function buildStoreAddress(tags) {
+  if (tags["addr:full"]) return tags["addr:full"];
+  return [
+    tags["addr:city"],
+    tags["addr:suburb"],
+    tags["addr:neighbourhood"],
+    tags["addr:street"],
+    tags["addr:housenumber"]
+  ].filter(Boolean).join(" ");
+}
+
+function uniqueStoreByNameAndAddress(store, index, stores) {
+  const key = `${store.name}|${store.address}`;
+  return stores.findIndex((candidate) => `${candidate.name}|${candidate.address}` === key) === index;
 }
 
 function formatStoreType(type) {
@@ -915,6 +958,7 @@ function resetQuickForm() {
   stopBarcodeScan();
   openFoodFactsCandidates = [];
   nearbyStoreCandidates = [];
+  nearbyStorePage = 0;
 }
 
 function resetStoreForm() {
