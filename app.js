@@ -52,6 +52,11 @@ const OPEN_FOOD_FACTS_SEARCH_TERMS = {
   "マヨネーズ": "mayonnaise"
 };
 
+const OPEN_FOOD_FACTS_BASE_URLS = [
+  "https://world.openfoodfacts.org",
+  "https://jp.openfoodfacts.org"
+];
+
 const state = loadState();
 let openFoodFactsCandidates = [];
 let nearbyStoreCandidates = [];
@@ -439,10 +444,16 @@ async function searchOpenFoodFacts() {
 
 async function fetchOpenFoodFactsCandidates(brand, productName) {
   const queries = buildOpenFoodFactsQueries(brand, productName);
+  let lastError = null;
   for (const query of queries) {
-    const products = await requestOpenFoodFacts(query);
-    if (products.length) return products;
+    try {
+      const products = await requestOpenFoodFacts(query);
+      if (products.length) return products;
+    } catch (error) {
+      lastError = error;
+    }
   }
+  if (lastError) throw lastError;
   return [];
 }
 
@@ -477,19 +488,44 @@ async function requestOpenFoodFacts(query) {
     page_size: "8",
     fields: "code,product_name,generic_name,brands,quantity,categories,categories_tags"
   });
-  const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const data = await response.json();
-  return Array.isArray(data.products) ? data.products.filter(hasUsefulOpenFoodFactsName) : [];
+  let lastError = null;
+  for (const baseUrl of OPEN_FOOD_FACTS_BASE_URLS) {
+    try {
+      const response = await fetch(`${baseUrl}/cgi/search.pl?${params.toString()}`, {
+        cache: "no-store",
+        credentials: "omit",
+        mode: "cors"
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      return Array.isArray(data.products) ? data.products.filter(hasUsefulOpenFoodFactsName) : [];
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("Open Food Facts request failed");
 }
 
 async function requestOpenFoodFactsByBarcode(barcode) {
   const code = String(barcode || "").trim();
   if (!code) return null;
-  const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=code,product_name,generic_name,brands,quantity,categories,categories_tags`);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const data = await response.json();
-  return data.status === 1 ? data.product : null;
+  let lastError = null;
+  for (const baseUrl of OPEN_FOOD_FACTS_BASE_URLS) {
+    try {
+      const response = await fetch(`${baseUrl}/api/v2/product/${encodeURIComponent(code)}.json?fields=code,product_name,generic_name,brands,quantity,categories,categories_tags`, {
+        cache: "no-store",
+        credentials: "omit",
+        mode: "cors"
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (data.status === 1) return data.product;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError) throw lastError;
+  return null;
 }
 
 function hasUsefulOpenFoodFactsName(product) {
