@@ -844,8 +844,16 @@ function renderBestPrices() {
     return `
       <article class="card best-card">
         <h3>${escapeHtml(product.name)}</h3>
-        <div class="best-price">${yen(best.amount)}</div>
-        <p class="memo">最安店舗: <strong>${escapeHtml(bestStore?.name || "-")}</strong></p>
+        <div class="best-highlight">
+          <div>
+            <span>最安値</span>
+            <strong class="best-price">${yen(best.amount)}</strong>
+          </div>
+          <div>
+            <span>最安店舗</span>
+            <strong>${escapeHtml(bestStore?.name || "-")}</strong>
+          </div>
+        </div>
         <div class="stats">
           <div class="stat"><span>最新価格</span><strong>${yen(latest.amount)}</strong><br>${escapeHtml(latestStore?.name || "-")}</div>
           <div class="stat"><span>平均価格</span><strong>${yen(average)}</strong></div>
