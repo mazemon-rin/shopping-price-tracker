@@ -37,8 +37,9 @@
         <p>商品名・店舗名・価格だけで記録できます。未登録の商品や店舗は自動で追加されます。<br>店舗の種類・エリア・メモなどの詳しい情報は、店舗タブであとから入力・編集できます。</p>
       </div>
       <form id="quickForm" class="card form-card">
-        <label>商品名<input id="quickProductName" list="productNameOptions" required placeholder="例: キャベツ"></label>
+        <label>商品名<input id="quickProductName" autocomplete="off" required placeholder="例: キャベツ"></label>
         <datalist id="productNameOptions"></datalist>
+        <div id="productSuggestions" class="suggestion-list" hidden></div>
         <details class="quick-details">
           <summary>バーコードを読み取る</summary>
           <div class="details-grid">
