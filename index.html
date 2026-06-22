@@ -81,6 +81,10 @@
           <button type="button" class="secondary" id="findNearbyStores">近くのお店を探す</button>
           <span id="nearbyStoreStatus" class="search-status" aria-live="polite"></span>
         </div>
+        <div class="address-search-row">
+          <label>住所・地名<input id="nearbyAddress" placeholder="例: 鳥栖駅 / 佐賀県鳥栖市"></label>
+          <button type="button" class="secondary" id="findStoresByAddress">住所から探す</button>
+        </div>
         <div id="nearbyStoreResults" class="candidate-results" aria-live="polite"></div>
         <label>日付<input id="quickPriceDate" type="date" required></label>
         <label>価格種別<select id="quickPriceKind"><option>通常価格</option><option>セール価格</option></select></label>
