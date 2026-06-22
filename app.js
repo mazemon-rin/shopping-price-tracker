@@ -98,7 +98,8 @@ function bindEvents() {
   els.productForm.addEventListener("submit", saveProduct);
   els.storeForm.addEventListener("submit", saveStore);
   els.priceForm.addEventListener("submit", savePrice);
-  document.getElementById("quickProductName").addEventListener("input", updateQuickProductFields);
+  document.getElementById("quickProductName").addEventListener("input", handleQuickProductNameInput);
+  document.getElementById("quickPriceStore").addEventListener("input", clearNearbyStoreResults);
   document.getElementById("quickProductCategory").addEventListener("input", markQuickCategoryEdited);
   document.getElementById("searchOpenFoodFacts").addEventListener("click", searchOpenFoodFacts);
   document.getElementById("findNearbyStores").addEventListener("click", findNearbyStores);
@@ -312,6 +313,8 @@ function selectNearbyStore(index) {
   if (!store) return;
   document.getElementById("quickPriceStore").value = store.name;
   document.getElementById("nearbyStoreStatus").textContent = "店舗名を反映しました。";
+  document.getElementById("nearbyStoreResults").innerHTML = "";
+  nearbyStoreCandidates = [];
 }
 
 function formatStoreType(type) {
@@ -394,6 +397,29 @@ function updateQuickProductFields() {
   if (categoryInput.dataset.userEdited !== "true") {
     categoryInput.value = getSuggestedCategory(nameInput.value);
   }
+}
+
+function handleQuickProductNameInput() {
+  updateQuickProductFields();
+  updateBarcodeVisibility();
+}
+
+function updateBarcodeVisibility() {
+  const hasProductName = Boolean(document.getElementById("quickProductName").value.trim());
+  document.getElementById("barcodeActions").hidden = !hasProductName;
+  if (!hasProductName) {
+    stopBarcodeScan();
+    document.getElementById("barcodeStatus").textContent = "";
+    document.getElementById("quickBarcode").value = "";
+  }
+}
+
+function clearNearbyStoreResults() {
+  const storeName = document.getElementById("quickPriceStore").value.trim();
+  if (!storeName) return;
+  document.getElementById("nearbyStoreResults").innerHTML = "";
+  document.getElementById("nearbyStoreStatus").textContent = "";
+  nearbyStoreCandidates = [];
 }
 
 function markQuickCategoryEdited() {
@@ -523,6 +549,7 @@ function applyOpenFoodFactsProduct(product) {
   if (grams) document.getElementById("quickProductWeightGrams").value = grams;
   if (category) document.getElementById("quickProductCategory").value = category;
   document.getElementById("quickProductCategory").dataset.userEdited = category ? "true" : "false";
+  updateBarcodeVisibility();
 }
 
 async function startBarcodeScan() {
@@ -820,6 +847,9 @@ function resetQuickForm() {
   document.getElementById("openFoodFactsStatus").textContent = "";
   document.getElementById("nearbyStoreResults").innerHTML = "";
   document.getElementById("nearbyStoreStatus").textContent = "";
+  document.getElementById("barcodeActions").hidden = true;
+  document.getElementById("barcodeStatus").textContent = "";
+  stopBarcodeScan();
   openFoodFactsCandidates = [];
   nearbyStoreCandidates = [];
 }
