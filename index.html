@@ -74,6 +74,10 @@
         <label>店舗名<input id="quickPriceStore" list="storeNameOptions" required placeholder="例: 〇〇スーパー"></label>
         <datalist id="storeNameOptions"></datalist>
         <div class="store-search-row">
+          <select id="nearbyStoreFilter" aria-label="店舗候補の種類">
+            <option value="priority">スーパー等を優先</option>
+            <option value="all">コンビニも含める</option>
+          </select>
           <button type="button" class="secondary" id="findNearbyStores">近くのお店を探す</button>
           <span id="nearbyStoreStatus" class="search-status" aria-live="polite"></span>
         </div>
