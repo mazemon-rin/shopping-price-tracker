@@ -337,6 +337,10 @@ textarea {
   align-items: center;
 }
 
+.store-search-row select {
+  flex: 1 1 180px;
+}
+
 .barcode-row {
   grid-column: 1 / -1;
   display: flex;
@@ -434,6 +438,10 @@ textarea {
 .source-note {
   margin-bottom: 0;
   color: var(--muted);
+}
+
+.nearby-next {
+  justify-self: start;
 }
 
 .form-subheading {
