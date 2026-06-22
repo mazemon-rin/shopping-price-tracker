@@ -41,6 +41,11 @@
         <datalist id="productNameOptions"></datalist>
         <label>店舗名<input id="quickPriceStore" list="storeNameOptions" required placeholder="例: 〇〇スーパー"></label>
         <datalist id="storeNameOptions"></datalist>
+        <div class="store-search-row">
+          <button type="button" class="secondary" id="findNearbyStores">近くのお店を探す</button>
+          <span id="nearbyStoreStatus" class="search-status" aria-live="polite"></span>
+        </div>
+        <div id="nearbyStoreResults" class="candidate-results" aria-live="polite"></div>
         <div class="price-tax-row">
           <label class="price-field">価格<input id="quickPriceAmount" type="number" min="0" step="1" required placeholder="例: 198"></label>
           <label class="tax-field">税区分<select id="quickPriceTax"><option>税込</option><option>税抜</option></select></label>
@@ -67,12 +72,13 @@
               <button type="button" class="secondary" id="scanBarcode">バーコードを読み取る</button>
               <button type="button" class="secondary" id="lookupBarcode">バーコードで検索</button>
               <button type="button" class="secondary" id="stopBarcodeScan" hidden>読み取りを停止</button>
-              <span id="barcodeStatus" class="search-status" aria-live="polite"></span>
             </div>
-            <p id="barcodeHelp" class="hint barcode-help"></p>
             <div id="barcodeScanner" class="barcode-scanner" hidden>
               <video id="barcodeVideo" playsinline muted></video>
             </div>
+            <span id="barcodeStatus" class="search-status barcode-status" aria-live="polite"></span>
+            <p id="barcodeHelp" class="hint barcode-help"></p>
+            <p class="hint barcode-help">お店独自のバーコード、値引きシール、店舗専用コードは読み取れない場合があります。一般的な商品バーコードのみ対応しています。</p>
           </div>
         </details>
         <div class="form-actions">
@@ -221,6 +227,7 @@
       <div class="card data-card">
         <h3>出典・ライセンス</h3>
         <p class="source-note">商品候補検索には <a href="https://world.openfoodfacts.org/" target="_blank" rel="noopener">Open Food Facts</a> のデータを参考情報として使用します。Open Food Factsのデータベースは Open Database License、個別のデータ内容は Database Contents License、商品画像は Creative Commons Attribution-ShareAlike ライセンスで提供されています。価格情報は取得せず、店舗ごとの価格はユーザーが入力します。</p>
+        <p class="source-note">近くのお店検索には <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap</a> のデータを使用します。© OpenStreetMap contributors. 店舗候補は参考情報であり、実際の店舗情報と異なる場合があります。</p>
       </div>
     </section>
   </main>
