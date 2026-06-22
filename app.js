@@ -54,6 +54,7 @@ const OPEN_FOOD_FACTS_SEARCH_TERMS = {
 
 const state = loadState();
 let openFoodFactsCandidates = [];
+let nearbyStoreCandidates = [];
 let barcodeStream = null;
 let barcodeScanTimer = null;
 let zxingCodeReader = null;
@@ -100,6 +101,7 @@ function bindEvents() {
   document.getElementById("quickProductName").addEventListener("input", updateQuickProductFields);
   document.getElementById("quickProductCategory").addEventListener("input", markQuickCategoryEdited);
   document.getElementById("searchOpenFoodFacts").addEventListener("click", searchOpenFoodFacts);
+  document.getElementById("findNearbyStores").addEventListener("click", findNearbyStores);
   document.getElementById("scanBarcode").addEventListener("click", startBarcodeScan);
   document.getElementById("stopBarcodeScan").addEventListener("click", stopBarcodeScan);
   document.getElementById("lookupBarcode").addEventListener("click", lookupBarcodeProduct);
@@ -227,6 +229,101 @@ function renderStoreNameOptions() {
   document.getElementById("storeNameOptions").innerHTML = state.stores
     .map((item) => `<option value="${escapeHtml(item.name)}">`)
     .join("");
+}
+
+async function findNearbyStores() {
+  const status = document.getElementById("nearbyStoreStatus");
+  const results = document.getElementById("nearbyStoreResults");
+  if (!navigator.geolocation) {
+    status.textContent = "位置情報を取得できませんでした。店舗名を手入力してください。";
+    results.innerHTML = "";
+    return;
+  }
+  status.textContent = "現在地を確認中...";
+  results.innerHTML = "";
+  nearbyStoreCandidates = [];
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      try {
+        status.textContent = "近くのお店を検索中...";
+        nearbyStoreCandidates = await fetchNearbyStores(position.coords.latitude, position.coords.longitude);
+        renderNearbyStoreResults(nearbyStoreCandidates);
+        status.textContent = nearbyStoreCandidates.length ? `${nearbyStoreCandidates.length}件見つかりました` : "近くのお店候補が見つかりませんでした。";
+      } catch {
+        status.textContent = "位置情報を取得できませんでした。店舗名を手入力してください。";
+        results.innerHTML = "";
+      }
+    },
+    () => {
+      status.textContent = "位置情報を取得できませんでした。店舗名を手入力してください。";
+      results.innerHTML = "";
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+  );
+}
+
+async function fetchNearbyStores(latitude, longitude) {
+  const query = `
+    [out:json][timeout:12];
+    (
+      node["shop"~"^(supermarket|convenience|chemist|department_store|mall|grocery|discount)$"](around:1000,${latitude},${longitude});
+      way["shop"~"^(supermarket|convenience|chemist|department_store|mall|grocery|discount)$"](around:1000,${latitude},${longitude});
+      relation["shop"~"^(supermarket|convenience|chemist|department_store|mall|grocery|discount)$"](around:1000,${latitude},${longitude});
+    );
+    out center tags 20;
+  `;
+  const response = await fetch("https://overpass-api.de/api/interpreter", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+    body: new URLSearchParams({ data: query })
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = await response.json();
+  return (data.elements || [])
+    .map((element) => ({
+      name: element.tags?.name || "",
+      type: element.tags?.shop || "",
+      lat: element.lat ?? element.center?.lat,
+      lon: element.lon ?? element.center?.lon
+    }))
+    .filter((store) => store.name)
+    .slice(0, 10);
+}
+
+function renderNearbyStoreResults(stores) {
+  const results = document.getElementById("nearbyStoreResults");
+  if (!stores.length) {
+    results.innerHTML = '<p class="hint">候補がありません。店舗名は手入力できます。</p>';
+    return;
+  }
+  results.innerHTML = stores.map((store, index) => `
+    <div class="candidate-card">
+      <div>
+        <strong>${escapeHtml(store.name)}</strong>
+        <p>${escapeHtml(formatStoreType(store.type))} / OpenStreetMap</p>
+      </div>
+      <button type="button" class="secondary tiny" onclick="selectNearbyStore(${index})">選択</button>
+    </div>
+  `).join("");
+}
+
+function selectNearbyStore(index) {
+  const store = nearbyStoreCandidates[index];
+  if (!store) return;
+  document.getElementById("quickPriceStore").value = store.name;
+  document.getElementById("nearbyStoreStatus").textContent = "店舗名を反映しました。";
+}
+
+function formatStoreType(type) {
+  return {
+    supermarket: "スーパー",
+    convenience: "コンビニ",
+    chemist: "ドラッグストア",
+    department_store: "百貨店",
+    mall: "ショッピングモール",
+    grocery: "食料品店",
+    discount: "ディスカウント店"
+  }[type] || "店舗";
 }
 
 function saveQuickEntry(event) {
@@ -721,7 +818,10 @@ function resetQuickForm() {
   document.getElementById("quickPriceDate").value = today();
   document.getElementById("openFoodFactsResults").innerHTML = "";
   document.getElementById("openFoodFactsStatus").textContent = "";
+  document.getElementById("nearbyStoreResults").innerHTML = "";
+  document.getElementById("nearbyStoreStatus").textContent = "";
   openFoodFactsCandidates = [];
+  nearbyStoreCandidates = [];
 }
 
 function resetStoreForm() {
