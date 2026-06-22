@@ -112,6 +112,7 @@ function bindEvents() {
   document.getElementById("quickProductCategory").addEventListener("input", markQuickCategoryEdited);
   document.getElementById("searchOpenFoodFacts").addEventListener("click", searchOpenFoodFacts);
   document.getElementById("findNearbyStores").addEventListener("click", findNearbyStores);
+  document.getElementById("findStoresByAddress").addEventListener("click", findStoresByAddress);
   document.getElementById("scanBarcode").addEventListener("click", startBarcodeScan);
   document.getElementById("stopBarcodeScan").addEventListener("click", stopBarcodeScan);
   document.getElementById("lookupBarcode").addEventListener("click", lookupBarcodeProduct);
@@ -272,6 +273,54 @@ async function findNearbyStores() {
     },
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
   );
+}
+
+async function findStoresByAddress() {
+  const address = document.getElementById("nearbyAddress").value.trim();
+  const status = document.getElementById("nearbyStoreStatus");
+  const results = document.getElementById("nearbyStoreResults");
+  if (!address) {
+    status.textContent = "住所や地名を入力してください。";
+    return;
+  }
+  status.textContent = "住所から場所を検索中...";
+  results.innerHTML = "";
+  nearbyStoreCandidates = [];
+  nearbyStorePage = 0;
+  try {
+    const location = await geocodeAddress(address);
+    if (!location) {
+      status.textContent = "住所から場所を見つけられませんでした。地名を少し変えて再検索してください。";
+      return;
+    }
+    status.textContent = "周辺のお店を検索中...";
+    nearbyStoreCandidates = await fetchNearbyStores(location.lat, location.lon);
+    renderNearbyStoreResults();
+    status.textContent = nearbyStoreCandidates.length ? `${nearbyStoreCandidates.length}件見つかりました` : "近くのお店候補が見つかりませんでした。";
+  } catch {
+    status.textContent = "住所から場所を見つけられませんでした。地名を少し変えて再検索してください。";
+    results.innerHTML = "";
+  }
+}
+
+async function geocodeAddress(address) {
+  const params = new URLSearchParams({
+    q: address,
+    format: "jsonv2",
+    limit: "1",
+    countrycodes: "jp"
+  });
+  const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+    headers: { "Accept": "application/json" },
+    cache: "no-store",
+    credentials: "omit",
+    mode: "cors"
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = await response.json();
+  const result = Array.isArray(data) ? data[0] : null;
+  if (!result?.lat || !result?.lon) return null;
+  return { lat: Number(result.lat), lon: Number(result.lon) };
 }
 
 async function fetchNearbyStores(latitude, longitude) {
