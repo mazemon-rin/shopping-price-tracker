@@ -5,7 +5,7 @@
 
 ## 公開URL
 
-https://あなたのGitHubユーザー名.github.io/リポジトリ名/
+https://mazemon-rin.github.io/shopping-price-tracker/
 
 ## 更新情報
 
