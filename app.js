@@ -104,6 +104,7 @@ function bindEvents() {
   els.storeForm.addEventListener("submit", saveStore);
   els.priceForm.addEventListener("submit", savePrice);
   document.getElementById("quickProductName").addEventListener("input", handleQuickProductNameInput);
+  document.getElementById("quickProductName").addEventListener("focus", renderProductSuggestions);
   document.getElementById("quickProductName").addEventListener("change", handleQuickProductNameInput);
   document.getElementById("quickPriceStore").addEventListener("input", clearNearbyStoreResults);
   document.getElementById("quickPriceStore").addEventListener("change", clearNearbyStoreResults);
@@ -231,6 +232,7 @@ function renderProductNameOptions() {
   document.getElementById("productNameOptions").innerHTML = state.products
     .map((item) => `<option value="${escapeHtml(item.name)}">`)
     .join("");
+  renderProductSuggestions();
 }
 
 function renderStoreNameOptions() {
@@ -407,6 +409,37 @@ function updateQuickProductFields() {
 }
 
 function handleQuickProductNameInput() {
+  updateQuickProductFields();
+  renderProductSuggestions();
+}
+
+function renderProductSuggestions() {
+  const list = document.getElementById("productSuggestions");
+  const input = document.getElementById("quickProductName");
+  const query = normalizeProductName(input.value);
+  const products = state.products
+    .filter((product) => !query || normalizeProductName(product.name).includes(query))
+    .slice(0, 6);
+  if (!products.length || document.activeElement !== input) {
+    list.hidden = true;
+    list.innerHTML = "";
+    return;
+  }
+  list.hidden = false;
+  list.innerHTML = products.map((product) => `
+    <button type="button" class="suggestion-item" onclick="selectProductSuggestion('${product.id}')">
+      <span>${escapeHtml(product.name)}</span>
+      <small>${escapeHtml(product.category || "カテゴリ未設定")}</small>
+    </button>
+  `).join("");
+}
+
+function selectProductSuggestion(productId) {
+  const product = findById(state.products, productId);
+  if (!product) return;
+  document.getElementById("quickProductName").value = product.name;
+  document.getElementById("productSuggestions").hidden = true;
+  document.getElementById("productSuggestions").innerHTML = "";
   updateQuickProductFields();
 }
 
@@ -871,6 +904,8 @@ function resetQuickForm() {
   document.getElementById("openFoodFactsStatus").textContent = "";
   document.getElementById("nearbyStoreResults").innerHTML = "";
   document.getElementById("nearbyStoreStatus").textContent = "";
+  document.getElementById("productSuggestions").innerHTML = "";
+  document.getElementById("productSuggestions").hidden = true;
   document.getElementById("barcodeStatus").textContent = "";
   stopBarcodeScan();
   openFoodFactsCandidates = [];
