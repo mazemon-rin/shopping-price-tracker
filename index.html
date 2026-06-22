@@ -61,14 +61,14 @@
             <label>メーカー名<input id="quickManufacturer" placeholder="例: カルビー"></label>
             <label>カテゴリ<input id="quickProductCategory" list="categoryOptions" placeholder="例: 野菜"></label>
             <div class="half-row">
-              <label>内容量(g)<input id="quickProductWeightGrams" type="number" min="1" step="1" placeholder="例: 300"></label>
-              <label>個数<input id="quickProductUnitCount" type="number" min="1" step="1" placeholder="例: 1"></label>
+              <label>内容量<span class="input-unit"><input id="quickProductWeightGrams" type="number" min="1" step="1" placeholder="例: 300"><span>g</span></span></label>
+              <label>個数<span class="input-unit"><input id="quickProductUnitCount" type="number" min="1" step="1" placeholder="例: 1"><span>個</span></span></label>
             </div>
             <label class="full">メモ<textarea id="quickPriceMemo" rows="3" placeholder="例: 特売、ポイント還元など"></textarea></label>
           </div>
         </details>
         <div class="price-tax-row">
-          <label class="price-field">価格<input id="quickPriceAmount" type="number" min="0" step="1" required placeholder="例: 198"></label>
+          <label class="price-field">価格<span class="input-unit"><input id="quickPriceAmount" type="number" min="0" step="1" required placeholder="例: 198"><span>円</span></span></label>
           <label class="tax-field">税区分<select id="quickPriceTax"><option>税込</option><option>税抜</option></select></label>
         </div>
         <label>店舗名<input id="quickPriceStore" list="storeNameOptions" required placeholder="例: 〇〇スーパー"></label>
@@ -82,7 +82,7 @@
           <span id="nearbyStoreStatus" class="search-status" aria-live="polite"></span>
         </div>
         <div class="address-search-row">
-          <label>住所・地名<input id="nearbyAddress" placeholder="例: 鳥栖駅 / 佐賀県鳥栖市"></label>
+          <label>住所・地名<input id="nearbyAddress" placeholder="例: ○○駅 / ○○市"></label>
           <button type="button" class="secondary" id="findStoresByAddress">住所から探す</button>
         </div>
         <div id="nearbyStoreResults" class="candidate-results" aria-live="polite"></div>
@@ -132,8 +132,8 @@
           <option value="日用品">
           <option value="その他">
         </datalist>
-        <label>内容量(g)<input id="productWeightGrams" type="number" min="1" step="1" placeholder="例: 300"></label>
-        <label>個数<input id="productUnitCount" type="number" min="1" step="1" placeholder="例: 10"></label>
+        <label>内容量<span class="input-unit"><input id="productWeightGrams" type="number" min="1" step="1" placeholder="例: 300"><span>g</span></span></label>
+        <label>個数<span class="input-unit"><input id="productUnitCount" type="number" min="1" step="1" placeholder="例: 10"><span>個</span></span></label>
         <label class="full">メモ<textarea id="productMemo" rows="3" placeholder="例: 低脂肪、家族用など"></textarea></label>
         <div class="form-actions">
           <button type="submit" class="primary">商品を保存</button>
@@ -171,7 +171,7 @@
         <input type="hidden" id="priceId">
         <label>商品名<select id="priceProduct" required></select></label>
         <label>店舗名<select id="priceStore" required></select></label>
-        <label>価格<input id="priceAmount" type="number" min="0" step="1" required placeholder="例: 198"></label>
+        <label>価格<span class="input-unit"><input id="priceAmount" type="number" min="0" step="1" required placeholder="例: 198"><span>円</span></span></label>
         <label>日付<input id="priceDate" type="date" required></label>
         <label>価格種別<select id="priceKind"><option>通常価格</option><option>セール価格</option></select></label>
         <label>税区分<select id="priceTax"><option>税込</option><option>税抜</option></select></label>
