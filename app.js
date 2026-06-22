@@ -84,6 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("quickPriceDate").value = today();
   document.getElementById("priceDate").value = today();
   bindEvents();
+  renderBarcodeHelp();
   render();
 });
 
@@ -116,6 +117,23 @@ function bindEvents() {
   document.querySelectorAll("[data-export]").forEach((button) => {
     button.addEventListener("click", () => exportCsv(button.dataset.export));
   });
+}
+
+function renderBarcodeHelp() {
+  const help = document.getElementById("barcodeHelp");
+  if (!help) return;
+  if (isIphoneSafari()) {
+    help.textContent = "iPhoneのSafariではバーコード読み取りが動かない場合があります。読み取りはChromeで開くか、バーコード番号を手入力して「バーコードで検索」を使ってください。";
+  } else {
+    help.textContent = "読み取れない場合は、バーコード番号を手入力して「バーコードで検索」を使えます。";
+  }
+}
+
+function isIphoneSafari() {
+  const ua = navigator.userAgent;
+  const isIphoneOrIpad = /iPhone|iPad|iPod/.test(ua);
+  const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+  return isIphoneOrIpad && isSafari;
 }
 
 function loadState() {
@@ -413,7 +431,7 @@ function applyOpenFoodFactsProduct(product) {
 async function startBarcodeScan() {
   const status = document.getElementById("barcodeStatus");
   if (!navigator.mediaDevices?.getUserMedia) {
-    status.textContent = "カメラを利用できません。バーコードを手入力してください。";
+    status.textContent = "カメラを利用できません。Chromeで開くか、バーコードを手入力してください。";
     return;
   }
   if ("BarcodeDetector" in window) {
@@ -424,7 +442,7 @@ async function startBarcodeScan() {
     await startZxingBarcodeScan();
     return;
   }
-  status.textContent = "このブラウザは読み取り非対応です。バーコードを手入力してください。";
+  status.textContent = "このブラウザでは読み取りできない場合があります。Chromeで開くか、手入力してください。";
 }
 
 async function startNativeBarcodeScan() {
@@ -443,7 +461,7 @@ async function startNativeBarcodeScan() {
     status.textContent = "バーコードをカメラに映してください";
     scanBarcodeLoop(new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] }));
   } catch (error) {
-    status.textContent = "カメラを起動できませんでした。手入力してください。";
+    status.textContent = "カメラを起動できませんでした。Chromeで開くか、手入力してください。";
     stopBarcodeScan();
   }
 }
@@ -464,7 +482,7 @@ async function startZxingBarcodeScan() {
     });
     status.textContent = "バーコードをカメラに映してください";
   } catch (error) {
-    status.textContent = "カメラを起動できませんでした。手入力してください。";
+    status.textContent = "カメラを起動できませんでした。Chromeで開くか、手入力してください。";
     stopBarcodeScan();
   }
 }
