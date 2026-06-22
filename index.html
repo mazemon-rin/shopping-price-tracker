@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>買い物価格記録</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Shopping Price Tracker</p>
+      <h1>買い物価格記録</h1>
+      <p class="lead">商品ごとの価格を店舗別に記録して、いちばん安く買える場所を確認できます。</p>
+    </div>
+    <div class="summary-strip" aria-label="登録件数">
+      <div><strong id="countProducts">0</strong><span>商品</span></div>
+      <div><strong id="countStores">0</strong><span>店舗</span></div>
+      <div><strong id="countPrices">0</strong><span>価格</span></div>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="画面切り替え">
+    <button class="tab-button active" data-tab="quick">登録</button>
+    <button class="tab-button" data-tab="dashboard">最安値</button>
+    <button class="tab-button" data-tab="products">商品</button>
+    <button class="tab-button" data-tab="stores">店舗</button>
+    <button class="tab-button" data-tab="prices">価格</button>
+    <button class="tab-button" data-tab="charts">グラフ</button>
+    <button class="tab-button" data-tab="data">データ</button>
+  </nav>
+
+  <main>
+    <section id="quick" class="tab-panel active">
+      <div class="section-heading">
+        <h2>買った商品をすぐ記録</h2>
+        <p>商品名・店舗名・価格だけで記録できます。未登録の商品や店舗は自動で追加されます。<br>店舗の種類・エリア・メモなどの詳しい情報は、店舗タブであとから入力・編集できます。</p>
+      </div>
+      <form id="quickForm" class="card form-card">
+        <label>商品名<input id="quickProductName" list="productNameOptions" required placeholder="例: キャベツ"></label>
+        <datalist id="productNameOptions"></datalist>
+        <label>メーカー名<input id="quickManufacturer" placeholder="例: カルビー"></label>
+        <div class="search-row">
+          <button type="button" class="secondary" id="searchOpenFoodFacts">商品候補を検索</button>
+          <span id="openFoodFactsStatus" class="search-status" aria-live="polite"></span>
+        </div>
+        <div id="openFoodFactsResults" class="off-results" aria-live="polite"></div>
+        <label>店舗名<input id="quickPriceStore" list="storeNameOptions" required placeholder="例: 〇〇スーパー"></label>
+        <datalist id="storeNameOptions"></datalist>
+        <div class="price-tax-row">
+          <label class="price-field">価格<input id="quickPriceAmount" type="number" min="0" step="1" required placeholder="例: 198"></label>
+          <label class="tax-field">税区分<select id="quickPriceTax"><option>税込</option><option>税抜</option></select></label>
+        </div>
+        <label>日付<input id="quickPriceDate" type="date" required></label>
+        <label>カテゴリ<input id="quickProductCategory" list="categoryOptions" placeholder="例: 野菜"></label>
+        <label>バーコード<input id="quickBarcode" placeholder="候補を選ぶと入ります"></label>
+        <div class="barcode-row">
+          <button type="button" class="secondary" id="scanBarcode">バーコードを読み取る</button>
+          <button type="button" class="secondary" id="lookupBarcode">バーコードで検索</button>
+          <button type="button" class="secondary" id="stopBarcodeScan" hidden>読み取りを停止</button>
+          <span id="barcodeStatus" class="search-status" aria-live="polite"></span>
+        </div>
+        <div id="barcodeScanner" class="barcode-scanner" hidden>
+          <video id="barcodeVideo" playsinline muted></video>
+        </div>
+        <div class="half-row">
+          <label>内容量(g)<input id="quickProductWeightGrams" type="number" min="1" step="1" placeholder="例: 300"></label>
+          <label>個数<input id="quickProductUnitCount" type="number" min="1" step="1" placeholder="例: 1"></label>
+        </div>
+        <label>価格種別<select id="quickPriceKind"><option>通常価格</option><option>セール価格</option></select></label>
+        <label class="full">メモ<textarea id="quickPriceMemo" rows="3" placeholder="例: 特売、ポイント還元など"></textarea></label>
+        <div class="form-actions">
+          <button type="submit" class="primary">すぐ記録する</button>
+          <button type="button" class="secondary" id="resetQuick">入力をクリア</button>
+        </div>
+      </form>
+      <div class="section-heading">
+        <h2>最近の価格記録</h2>
+      </div>
+      <div id="quickRecentList" class="list-stack"></div>
+    </section>
+
+    <section id="dashboard" class="tab-panel">
+      <div class="section-heading">
+        <h2>最安値一覧</h2>
+        <p>商品ごとの最安店舗、最新価格、平均価格、過去最安値を表示します。</p>
+      </div>
+      <div id="bestPriceList" class="card-grid"></div>
+    </section>
+
+    <section id="products" class="tab-panel">
+      <div class="section-heading">
+        <h2>商品を詳しく編集</h2>
+        <p>登録済み商品のカテゴリ、内容量、個数、メモをあとから整えられます。</p>
+      </div>
+      <form id="productForm" class="card form-card">
+        <input type="hidden" id="productId">
+        <label>商品名<input id="productName" required placeholder="例: 牛乳"></label>
+        <label>メーカー名<input id="productManufacturer" placeholder="例: カルビー"></label>
+        <label>カテゴリ<input id="productCategory" list="categoryOptions" placeholder="例: 野菜"></label>
+        <label>バーコード<input id="productBarcode" placeholder="例: 4900000000000"></label>
+        <datalist id="categoryOptions">
+          <option value="野菜">
+          <option value="果物">
+          <option value="肉類">
+          <option value="魚介類">
+          <option value="卵・乳製品">
+          <option value="米・パン・麺">
+          <option value="飲料">
+          <option value="調味料">
+          <option value="冷凍食品">
+          <option value="お菓子">
+          <option value="日用品">
+          <option value="その他">
+        </datalist>
+        <label>内容量(g)<input id="productWeightGrams" type="number" min="1" step="1" placeholder="例: 300"></label>
+        <label>個数<input id="productUnitCount" type="number" min="1" step="1" placeholder="例: 10"></label>
+        <label class="full">メモ<textarea id="productMemo" rows="3" placeholder="例: 低脂肪、家族用など"></textarea></label>
+        <div class="form-actions">
+          <button type="submit" class="primary">商品を保存</button>
+          <button type="button" class="secondary" id="resetProduct">入力をクリア</button>
+        </div>
+      </form>
+      <div id="productList" class="list-stack"></div>
+    </section>
+
+    <section id="stores" class="tab-panel">
+      <div class="section-heading">
+        <h2>店舗を登録・編集</h2>
+        <p>登録タブで選べる店舗を追加・編集します。</p>
+      </div>
+      <form id="storeForm" class="card form-card">
+        <input type="hidden" id="storeId">
+        <label>店舗名<input id="storeName" required placeholder="例: 〇〇スーパー"></label>
+        <label>店舗種別<input id="storeType" placeholder="例: スーパー"></label>
+        <label>エリア<input id="storeArea" placeholder="例: 駅前 / 自宅近く"></label>
+        <label class="full">メモ<textarea id="storeMemo" rows="3" placeholder="例: 火曜市が安い、駐車場ありなど"></textarea></label>
+        <div class="form-actions">
+          <button type="submit" class="primary">店舗を保存</button>
+          <button type="button" class="secondary" id="resetStore">入力をクリア</button>
+        </div>
+      </form>
+      <div id="storeList" class="list-stack"></div>
+    </section>
+
+    <section id="prices" class="tab-panel">
+      <div class="section-heading">
+        <h2>価格を詳しく編集</h2>
+        <p>登録済みの価格記録をあとから修正できます。</p>
+      </div>
+      <form id="priceForm" class="card form-card">
+        <input type="hidden" id="priceId">
+        <label>商品名<select id="priceProduct" required></select></label>
+        <label>店舗名<select id="priceStore" required></select></label>
+        <label>価格<input id="priceAmount" type="number" min="0" step="1" required placeholder="例: 198"></label>
+        <label>日付<input id="priceDate" type="date" required></label>
+        <label>価格種別<select id="priceKind"><option>通常価格</option><option>セール価格</option></select></label>
+        <label>税区分<select id="priceTax"><option>税込</option><option>税抜</option></select></label>
+        <label class="full">メモ<textarea id="priceMemo" rows="3" placeholder="例: ポイント還元、数量限定など"></textarea></label>
+        <div class="form-actions">
+          <button type="submit" class="primary">価格を保存</button>
+          <button type="button" class="secondary" id="resetPrice">入力をクリア</button>
+        </div>
+      </form>
+      <div id="priceList" class="list-stack"></div>
+    </section>
+
+    <section id="charts" class="tab-panel">
+      <div class="section-heading">
+        <h2>グラフ</h2>
+        <p>価格の変化と、店舗ごとの違いを確認できます。</p>
+      </div>
+      <div class="card controls">
+        <label>表示する商品<select id="chartProduct"></select></label>
+      </div>
+      <div class="chart-grid">
+        <div class="card chart-card">
+          <h3>価格推移</h3>
+          <canvas id="trendChart" width="720" height="360"></canvas>
+        </div>
+        <div class="card chart-card">
+          <h3>店舗比較</h3>
+          <canvas id="storeChart" width="720" height="360"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section id="data" class="tab-panel">
+      <div class="section-heading">
+        <h2>データ管理</h2>
+        <p>CSVでバックアップや移行ができます。</p>
+      </div>
+      <div class="card data-card">
+        <h3>CSVエクスポート</h3>
+        <div class="button-row">
+          <button class="secondary" data-export="products">商品CSV</button>
+          <button class="secondary" data-export="stores">店舗CSV</button>
+          <button class="secondary" data-export="prices">価格CSV</button>
+        </div>
+      </div>
+      <div class="card data-card">
+        <h3>CSVインポート</h3>
+        <div class="import-row">
+          <label>種類<select id="importType"><option value="products">商品</option><option value="stores">店舗</option><option value="prices">価格</option></select></label>
+          <input id="csvFile" type="file" accept=".csv,text/csv">
+          <button class="primary" id="importCsv" type="button">CSVを読み込む</button>
+        </div>
+        <p class="hint">同じIDのデータは上書きされます。IDがない行は新規登録されます。</p>
+      </div>
+      <div class="card danger-card">
+        <h3>すべてのデータを削除</h3>
+        <p>端末内のlocalStorageに保存された、このアプリのデータだけを削除します。</p>
+        <button class="danger" id="clearAll" type="button">全データ削除</button>
+      </div>
+      <div class="card data-card">
+        <h3>出典・ライセンス</h3>
+        <p class="source-note">商品候補検索には <a href="https://world.openfoodfacts.org/" target="_blank" rel="noopener">Open Food Facts</a> のデータを参考情報として使用します。Open Food Factsのデータベースは Open Database License、個別のデータ内容は Database Contents License、商品画像は Creative Commons Attribution-ShareAlike ライセンスで提供されています。価格情報は取得せず、店舗ごとの価格はユーザーが入力します。</p>
+      </div>
+    </section>
+  </main>
+
+  <template id="emptyTemplate">
+    <div class="empty">まだデータがありません。まずは登録してみましょう。</div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
