@@ -313,7 +313,8 @@ textarea {
   min-width: 90px;
 }
 
-.search-row {
+.search-row,
+.store-search-row {
   grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
@@ -347,6 +348,11 @@ textarea {
 
 .barcode-help {
   grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+.barcode-status {
+  grid-column: 1 / -1;
 }
 
 .search-status {
@@ -354,13 +360,15 @@ textarea {
   font-weight: 650;
 }
 
-.off-results {
+.off-results,
+.candidate-results {
   grid-column: 1 / -1;
   display: grid;
   gap: 12px;
 }
 
-.off-result {
+.off-result,
+.candidate-card {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 16px;
@@ -373,6 +381,7 @@ textarea {
 }
 
 .off-result p,
+.candidate-card p,
 .source-note {
   margin-bottom: 0;
   color: var(--muted);
@@ -635,12 +644,14 @@ textarea {
   .form-actions button,
   .button-row button,
   .import-row button,
+  .store-search-row button,
   .search-row button,
   .barcode-row button {
     width: 100%;
   }
 
-  .off-result {
+  .off-result,
+  .candidate-card {
     grid-template-columns: 1fr;
   }
 
