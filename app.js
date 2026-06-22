@@ -86,6 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("priceDate").value = today();
   bindEvents();
   renderBarcodeHelp();
+  updateBarcodeVisibility();
   render();
 });
 
@@ -99,7 +100,9 @@ function bindEvents() {
   els.storeForm.addEventListener("submit", saveStore);
   els.priceForm.addEventListener("submit", savePrice);
   document.getElementById("quickProductName").addEventListener("input", handleQuickProductNameInput);
+  document.getElementById("quickProductName").addEventListener("change", handleQuickProductNameInput);
   document.getElementById("quickPriceStore").addEventListener("input", clearNearbyStoreResults);
+  document.getElementById("quickPriceStore").addEventListener("change", clearNearbyStoreResults);
   document.getElementById("quickProductCategory").addEventListener("input", markQuickCategoryEdited);
   document.getElementById("searchOpenFoodFacts").addEventListener("click", searchOpenFoodFacts);
   document.getElementById("findNearbyStores").addEventListener("click", findNearbyStores);
@@ -406,7 +409,9 @@ function handleQuickProductNameInput() {
 
 function updateBarcodeVisibility() {
   const hasProductName = Boolean(document.getElementById("quickProductName").value.trim());
-  document.getElementById("barcodeActions").hidden = !hasProductName;
+  const actions = document.getElementById("barcodeActions");
+  actions.hidden = !hasProductName;
+  actions.setAttribute("aria-hidden", String(!hasProductName));
   if (!hasProductName) {
     stopBarcodeScan();
     document.getElementById("barcodeStatus").textContent = "";
@@ -415,8 +420,6 @@ function updateBarcodeVisibility() {
 }
 
 function clearNearbyStoreResults() {
-  const storeName = document.getElementById("quickPriceStore").value.trim();
-  if (!storeName) return;
   document.getElementById("nearbyStoreResults").innerHTML = "";
   document.getElementById("nearbyStoreStatus").textContent = "";
   nearbyStoreCandidates = [];
@@ -848,6 +851,7 @@ function resetQuickForm() {
   document.getElementById("nearbyStoreResults").innerHTML = "";
   document.getElementById("nearbyStoreStatus").textContent = "";
   document.getElementById("barcodeActions").hidden = true;
+  document.getElementById("barcodeActions").setAttribute("aria-hidden", "true");
   document.getElementById("barcodeStatus").textContent = "";
   stopBarcodeScan();
   openFoodFactsCandidates = [];
