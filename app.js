@@ -56,6 +56,7 @@ const state = loadState();
 let openFoodFactsCandidates = [];
 let barcodeStream = null;
 let barcodeScanTimer = null;
+let zxingCodeReader = null;
 
 const els = {
   tabs: document.querySelectorAll(".tab-button"),
@@ -411,14 +412,23 @@ function applyOpenFoodFactsProduct(product) {
 
 async function startBarcodeScan() {
   const status = document.getElementById("barcodeStatus");
-  if (!("BarcodeDetector" in window)) {
-    status.textContent = "このブラウザは読み取り非対応です。バーコードを手入力してください。";
-    return;
-  }
   if (!navigator.mediaDevices?.getUserMedia) {
     status.textContent = "カメラを利用できません。バーコードを手入力してください。";
     return;
   }
+  if ("BarcodeDetector" in window) {
+    await startNativeBarcodeScan();
+    return;
+  }
+  if (window.ZXing?.BrowserMultiFormatReader) {
+    await startZxingBarcodeScan();
+    return;
+  }
+  status.textContent = "このブラウザは読み取り非対応です。バーコードを手入力してください。";
+}
+
+async function startNativeBarcodeScan() {
+  const status = document.getElementById("barcodeStatus");
   try {
     status.textContent = "カメラ起動中...";
     const video = document.getElementById("barcodeVideo");
@@ -432,6 +442,27 @@ async function startBarcodeScan() {
     document.getElementById("stopBarcodeScan").hidden = false;
     status.textContent = "バーコードをカメラに映してください";
     scanBarcodeLoop(new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] }));
+  } catch (error) {
+    status.textContent = "カメラを起動できませんでした。手入力してください。";
+    stopBarcodeScan();
+  }
+}
+
+async function startZxingBarcodeScan() {
+  const status = document.getElementById("barcodeStatus");
+  try {
+    status.textContent = "カメラ起動中...";
+    document.getElementById("barcodeScanner").hidden = false;
+    document.getElementById("stopBarcodeScan").hidden = false;
+    zxingCodeReader = new ZXing.BrowserMultiFormatReader();
+    await zxingCodeReader.decodeFromVideoDevice(null, "barcodeVideo", async (result) => {
+      if (!result) return;
+      document.getElementById("quickBarcode").value = result.getText();
+      document.getElementById("barcodeStatus").textContent = "読み取りました。商品情報を検索中...";
+      stopBarcodeScan();
+      await lookupBarcodeProduct();
+    });
+    status.textContent = "バーコードをカメラに映してください";
   } catch (error) {
     status.textContent = "カメラを起動できませんでした。手入力してください。";
     stopBarcodeScan();
@@ -457,6 +488,10 @@ function scanBarcodeLoop(detector) {
 }
 
 function stopBarcodeScan() {
+  if (zxingCodeReader) {
+    zxingCodeReader.reset();
+    zxingCodeReader = null;
+  }
   if (barcodeScanTimer) {
     window.clearInterval(barcodeScanTimer);
     barcodeScanTimer = null;
