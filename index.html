@@ -50,6 +50,8 @@
               <button type="button" class="secondary" id="searchOpenFoodFacts">商品候補を検索</button>
               <button type="button" class="secondary" id="stopBarcodeScan" hidden>読み取りを停止</button>
             </div>
+            <span id="openFoodFactsStatus" class="search-status barcode-status" aria-live="polite"></span>
+            <div id="openFoodFactsResults" class="off-results" aria-live="polite"></div>
             <div id="barcodeScanner" class="barcode-scanner" hidden>
               <video id="barcodeVideo" playsinline muted></video>
             </div>
@@ -63,8 +65,6 @@
               <label>個数<input id="quickProductUnitCount" type="number" min="1" step="1" placeholder="例: 1"></label>
             </div>
             <label class="full">メモ<textarea id="quickPriceMemo" rows="3" placeholder="例: 特売、ポイント還元など"></textarea></label>
-            <span id="openFoodFactsStatus" class="search-status barcode-status" aria-live="polite"></span>
-            <div id="openFoodFactsResults" class="off-results" aria-live="polite"></div>
           </div>
         </details>
         <div class="price-tax-row">
