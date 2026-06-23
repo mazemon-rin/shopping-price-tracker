@@ -182,6 +182,19 @@ main {
   padding: 38px clamp(18px, 4vw, 34px) 72px;
 }
 
+.app-footer {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  padding: 0 clamp(18px, 4vw, 34px) 42px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  text-align: center;
+}
+
+.app-footer p {
+  margin: 0;
+}
+
 .tab-panel {
   display: none;
 }
