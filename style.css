@@ -405,6 +405,24 @@ textarea {
   align-items: center;
 }
 
+.product-search-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.product-search-row button {
+  min-height: 50px;
+  white-space: nowrap;
+}
+
+.product-search-guide {
+  grid-column: 1 / -1;
+  margin: -4px 0 0;
+}
+
 .barcode-scanner {
   grid-column: 1 / -1;
   overflow: hidden;
@@ -743,6 +761,14 @@ textarea {
   .chart-grid,
   .list-item {
     grid-template-columns: 1fr;
+  }
+
+  .product-search-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .product-search-row button {
+    width: auto;
   }
 
   .half-row {
