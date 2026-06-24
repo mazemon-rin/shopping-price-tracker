@@ -429,6 +429,39 @@ textarea {
   margin: -4px 0 0;
 }
 
+.category-tabs {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  padding: 2px 0 6px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+
+.category-tab {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--text);
+  font-size: 0.88rem;
+  box-shadow: none;
+}
+
+.category-tab.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.original-product-name {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
 .barcode-scanner {
   grid-column: 1 / -1;
   overflow: hidden;
