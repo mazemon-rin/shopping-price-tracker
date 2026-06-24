@@ -48,27 +48,6 @@
             </div>
             <div id="barcodeScanner" class="barcode-scanner" hidden>
               <video id="barcodeVideo" playsinline muted></video>
-              <div class="scanner-shade scanner-shade-top"></div>
-              <div class="scanner-shade scanner-shade-bottom"></div>
-              <div class="scanner-shade scanner-shade-left"></div>
-              <div class="scanner-shade scanner-shade-right"></div>
-              <div class="barcode-target" aria-hidden="true"></div>
-              <p class="scanner-guide">バーコードを枠いっぱいに合わせてください</p>
-            </div>
-            <canvas id="barcodeCanvas" hidden></canvas>
-            <div id="cameraControls" class="camera-controls" hidden>
-              <label id="barcodeZoomLabel" hidden>ズーム
-                <input id="barcodeZoom" type="range" min="1" max="1" step="0.1" value="1">
-              </label>
-              <button type="button" class="secondary" id="toggleBarcodeTorch" hidden>ライトを点灯</button>
-            </div>
-            <div id="barcodeConfirmation" class="barcode-confirmation" hidden>
-              <span>読み取ったバーコード番号</span>
-              <strong id="detectedBarcode"></strong>
-              <div class="barcode-confirmation-actions">
-                <button type="button" class="primary" id="confirmBarcodeSearch">この番号で検索する</button>
-                <button type="button" class="secondary" id="retryBarcodeScan">もう一度読み取る</button>
-              </div>
             </div>
             <span id="barcodeStatus" class="search-status barcode-status" aria-live="polite"></span>
             <p id="barcodeHelp" class="hint barcode-help"></p>
