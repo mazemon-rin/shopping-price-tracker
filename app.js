@@ -114,10 +114,11 @@ function bindEvents() {
   document.getElementById("findNearbyStores").addEventListener("click", findNearbyStores);
   document.getElementById("findStoresByAddress").addEventListener("click", findStoresByAddress);
   document.getElementById("scanBarcode").addEventListener("click", startBarcodeScan);
-  document.getElementById("stopBarcodeScan").addEventListener("click", stopBarcodeScan);
+  document.getElementById("stopBarcodeScan").addEventListener("click", () => stopBarcodeScan(true));
   document.getElementById("lookupBarcode").addEventListener("click", lookupBarcodeProduct);
   document.getElementById("productName").addEventListener("input", suggestProductCategory);
   document.getElementById("productCategory").addEventListener("input", markProductCategoryEdited);
+  bindNumericInputNormalization();
 
   document.getElementById("resetQuick").addEventListener("click", resetQuickForm);
   document.getElementById("resetProduct").addEventListener("click", resetProductForm);
@@ -439,7 +440,7 @@ function saveQuickEntry(event) {
     id: uid(),
     productId: product.id,
     storeId: store.id,
-    amount: Number(document.getElementById("quickPriceAmount").value),
+    amount: Number(normalizeNumericText(document.getElementById("quickPriceAmount").value)),
     date: document.getElementById("quickPriceDate").value,
     kind: document.getElementById("quickPriceKind").value,
     tax: document.getElementById("quickPriceTax").value,
@@ -503,6 +504,20 @@ function updateQuickProductFields() {
 function handleQuickProductNameInput() {
   updateQuickProductFields();
   renderProductSuggestions();
+  updateProductSearchGuide();
+}
+
+function updateProductSearchGuide(message = "") {
+  const guide = document.getElementById("productSearchGuide");
+  if (!guide) return;
+  if (message) {
+    guide.textContent = message;
+    return;
+  }
+  const productName = document.getElementById("quickProductName").value.trim();
+  guide.textContent = productName
+    ? "商品名を確認し、「商品候補を検索」を押してください。"
+    : "商品名を入力してください。入力できたら「商品候補を検索」を押してください。";
 }
 
 function renderProductSuggestions() {
@@ -557,7 +572,8 @@ async function searchOpenFoodFacts() {
   const status = document.getElementById("openFoodFactsStatus");
   const results = document.getElementById("openFoodFactsResults");
   if (!brand && !productName) {
-    alert("メーカー名または商品名を入力してください。");
+    status.textContent = "商品名を入力してください。";
+    updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
     return;
   }
   status.textContent = "検索中...";
@@ -705,12 +721,15 @@ function applyOpenFoodFactsProduct(product) {
   if (grams) document.getElementById("quickProductWeightGrams").value = grams;
   if (category) document.getElementById("quickProductCategory").value = category;
   document.getElementById("quickProductCategory").dataset.userEdited = category ? "true" : "false";
+  updateProductSearchGuide();
 }
 
 async function startBarcodeScan() {
   const status = document.getElementById("barcodeStatus");
+  status.textContent = "";
   if (!navigator.mediaDevices?.getUserMedia) {
-    status.textContent = "カメラを利用できません。Chromeで開くか、バーコードを手入力してください。";
+    status.textContent = "読み取り候補がありません。商品名を入力してください。";
+    updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
     return;
   }
   if ("BarcodeDetector" in window) {
@@ -721,7 +740,8 @@ async function startBarcodeScan() {
     await startZxingBarcodeScan();
     return;
   }
-  status.textContent = "このブラウザでは読み取りできない場合があります。Chromeで開くか、手入力してください。";
+  status.textContent = "読み取り候補がありません。商品名を入力してください。";
+  updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
 }
 
 async function startNativeBarcodeScan() {
@@ -740,7 +760,8 @@ async function startNativeBarcodeScan() {
     status.textContent = "バーコードをカメラに映してください";
     scanBarcodeLoop(new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] }));
   } catch (error) {
-    status.textContent = "カメラを起動できませんでした。Chromeで開くか、手入力してください。";
+    status.textContent = "読み取り候補がありません。商品名を入力してください。";
+    updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
     stopBarcodeScan();
   }
 }
@@ -761,7 +782,8 @@ async function startZxingBarcodeScan() {
     });
     status.textContent = "バーコードをカメラに映してください";
   } catch (error) {
-    status.textContent = "カメラを起動できませんでした。Chromeで開くか、手入力してください。";
+    status.textContent = "読み取り候補がありません。商品名を入力してください。";
+    updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
     stopBarcodeScan();
   }
 }
@@ -784,7 +806,7 @@ function scanBarcodeLoop(detector) {
   }, 600);
 }
 
-function stopBarcodeScan() {
+function stopBarcodeScan(showNoCandidate = false) {
   if (zxingCodeReader) {
     zxingCodeReader.reset();
     zxingCodeReader = null;
@@ -801,26 +823,34 @@ function stopBarcodeScan() {
   video.srcObject = null;
   document.getElementById("barcodeScanner").hidden = true;
   document.getElementById("stopBarcodeScan").hidden = true;
+  if (showNoCandidate && !document.getElementById("quickBarcode").value.trim()) {
+    document.getElementById("barcodeStatus").textContent = "読み取り候補がありません。商品名を入力してください。";
+    updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
+  }
 }
 
 async function lookupBarcodeProduct() {
   const barcode = document.getElementById("quickBarcode").value.trim();
   const status = document.getElementById("barcodeStatus");
   if (!barcode) {
-    alert("バーコードを入力してください。");
+    status.textContent = "読み取り候補がありません。商品名を入力してください。";
+    updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
     return;
   }
   try {
     status.textContent = "バーコードで検索中...";
     const product = await requestOpenFoodFactsByBarcode(barcode);
     if (!product) {
-      status.textContent = "商品情報が見つかりませんでした。手入力できます。";
+      status.textContent = "読み取り候補がありません。商品名を入力してください。";
+      updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
       return;
     }
     applyOpenFoodFactsProduct(product);
     status.textContent = "商品情報を反映しました。価格は入力してください。";
+    updateProductSearchGuide();
   } catch {
-    status.textContent = "バーコード検索できませんでした。手入力できます。";
+    status.textContent = "読み取り候補がありません。商品名を入力してください。";
+    updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
   }
 }
 
@@ -900,8 +930,57 @@ function getSuggestedCategory(productName) {
 }
 
 function positiveNumberOrEmpty(value) {
-  const number = Number(value);
+  const number = Number(normalizeNumericText(value));
   return number > 0 ? number : "";
+}
+
+function normalizeNumericText(value) {
+  return String(value || "")
+    .replace(/[０-９]/g, (character) => String.fromCharCode(character.charCodeAt(0) - 0xFEE0))
+    .replace(/[．。]/g, ".")
+    .replace(/[，、]/g, "")
+    .replace(/－/g, "-")
+    .replace(/＋/g, "+")
+    .replace(/[　\s]/g, "");
+}
+
+function bindNumericInputNormalization() {
+  document.querySelectorAll('input[type="number"]').forEach((input) => {
+    input.addEventListener("beforeinput", (event) => {
+      if (!event.data) return;
+      const normalized = normalizeNumericText(event.data);
+      if (normalized === event.data) return;
+      event.preventDefault();
+      insertNormalizedNumber(input, normalized);
+    });
+
+    input.addEventListener("paste", (event) => {
+      const pasted = event.clipboardData?.getData("text") || "";
+      const normalized = normalizeNumericText(pasted);
+      if (!pasted || normalized === pasted) return;
+      event.preventDefault();
+      insertNormalizedNumber(input, normalized);
+    });
+
+    input.addEventListener("change", () => {
+      const normalized = normalizeNumericText(input.value);
+      if (normalized !== input.value) input.value = normalized;
+    });
+  });
+}
+
+function insertNormalizedNumber(input, text) {
+  const current = input.value;
+  let start = current.length;
+  let end = current.length;
+  try {
+    start = input.selectionStart ?? current.length;
+    end = input.selectionEnd ?? start;
+  } catch {
+    // Number inputs do not expose a selection range in some browsers.
+  }
+  input.value = `${current.slice(0, start)}${text}${current.slice(end)}`;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 function gramsOf(product) {
@@ -971,7 +1050,7 @@ function savePrice(event) {
     id: document.getElementById("priceId").value || uid(),
     productId: document.getElementById("priceProduct").value,
     storeId: document.getElementById("priceStore").value,
-    amount: Number(document.getElementById("priceAmount").value),
+    amount: Number(normalizeNumericText(document.getElementById("priceAmount").value)),
     date: document.getElementById("priceDate").value,
     kind: document.getElementById("priceKind").value,
     tax: document.getElementById("priceTax").value,
@@ -1005,6 +1084,7 @@ function resetQuickForm() {
   document.getElementById("productSuggestions").innerHTML = "";
   document.getElementById("productSuggestions").hidden = true;
   document.getElementById("barcodeStatus").textContent = "";
+  updateProductSearchGuide();
   stopBarcodeScan();
   openFoodFactsCandidates = [];
   nearbyStoreCandidates = [];
