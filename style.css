@@ -64,6 +64,12 @@ button:active {
   transform: translateY(1px);
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+  transform: none;
+}
+
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
@@ -637,6 +643,19 @@ textarea {
   box-shadow: var(--shadow-soft);
 }
 
+.off-result.has-image {
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+}
+
+.candidate-image {
+  width: 72px;
+  height: 72px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: #ffffff;
+  object-fit: contain;
+}
+
 .off-result p,
 .candidate-card p,
 .source-note {
@@ -929,6 +948,19 @@ textarea {
   .off-result,
   .candidate-card {
     grid-template-columns: 1fr;
+  }
+
+  .off-result.has-image {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .off-result.has-image .candidate-image {
+    width: 64px;
+    height: 64px;
+  }
+
+  .off-result.has-image button {
+    grid-column: 1 / -1;
   }
 
   .tabs {
