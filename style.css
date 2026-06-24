@@ -411,26 +411,6 @@ textarea {
   align-items: center;
 }
 
-.file-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
 .product-search-row {
   grid-column: 1 / -1;
   display: grid;
@@ -935,8 +915,7 @@ textarea {
   .store-search-row button,
   .address-search-row button,
   .search-row button,
-  .barcode-row button,
-  .barcode-row .file-button {
+  .barcode-row button {
     width: 100%;
   }
 
