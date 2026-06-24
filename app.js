@@ -945,42 +945,15 @@ function normalizeNumericText(value) {
 }
 
 function bindNumericInputNormalization() {
-  document.querySelectorAll('input[type="number"]').forEach((input) => {
-    input.addEventListener("beforeinput", (event) => {
-      if (!event.data) return;
-      const normalized = normalizeNumericText(event.data);
-      if (normalized === event.data) return;
-      event.preventDefault();
-      insertNormalizedNumber(input, normalized);
-    });
-
-    input.addEventListener("paste", (event) => {
-      const pasted = event.clipboardData?.getData("text") || "";
-      const normalized = normalizeNumericText(pasted);
-      if (!pasted || normalized === pasted) return;
-      event.preventDefault();
-      insertNormalizedNumber(input, normalized);
-    });
-
-    input.addEventListener("change", () => {
+  document.querySelectorAll("[data-numeric]").forEach((input) => {
+    const normalizeInput = () => {
       const normalized = normalizeNumericText(input.value);
       if (normalized !== input.value) input.value = normalized;
-    });
+    };
+    input.addEventListener("blur", normalizeInput);
+    input.addEventListener("change", normalizeInput);
+    input.addEventListener("compositionend", normalizeInput);
   });
-}
-
-function insertNormalizedNumber(input, text) {
-  const current = input.value;
-  let start = current.length;
-  let end = current.length;
-  try {
-    start = input.selectionStart ?? current.length;
-    end = input.selectionEnd ?? start;
-  } catch {
-    // Number inputs do not expose a selection range in some browsers.
-  }
-  input.value = `${current.slice(0, start)}${text}${current.slice(end)}`;
-  input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 function gramsOf(product) {
