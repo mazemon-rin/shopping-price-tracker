@@ -132,7 +132,6 @@ function bindEvents() {
   document.getElementById("scanBarcode").addEventListener("click", startBarcodeScan);
   document.getElementById("stopBarcodeScan").addEventListener("click", () => stopBarcodeScan(true));
   document.getElementById("lookupBarcode").addEventListener("click", lookupBarcodeProduct);
-  document.getElementById("barcodeImage").addEventListener("change", readBarcodeFromImage);
   document.getElementById("confirmBarcodeSearch").addEventListener("click", confirmDetectedBarcode);
   document.getElementById("retryBarcodeScan").addEventListener("click", retryBarcodeScan);
   document.getElementById("toggleBarcodeTorch").addEventListener("click", toggleBarcodeTorch);
@@ -1140,6 +1139,11 @@ async function startBarcodeScan() {
   stopBarcodeScan();
   resetBarcodeDetection();
   hideBarcodeConfirmation();
+  barcodeDetector = await createBarcodeDetector();
+  if (!barcodeDetector) {
+    await startZxingVideoScan();
+    return;
+  }
   try {
     status.textContent = "カメラ起動中...";
     const video = document.getElementById("barcodeVideo");
@@ -1157,16 +1161,49 @@ async function startBarcodeScan() {
     document.getElementById("barcodeScanner").hidden = false;
     document.getElementById("stopBarcodeScan").hidden = false;
     configureBarcodeCameraControls();
-    barcodeDetector = await createBarcodeDetector();
-    zxingCodeReader = barcodeDetector ? null : createZxingBarcodeReader();
-    if (!barcodeDetector && !zxingCodeReader) {
-      throw new Error("No supported barcode reader");
-    }
     status.textContent = "バーコードを枠いっぱいに合わせてください";
-    startBarcodeScanLoop();
+    startNativeBarcodeScanLoop();
   } catch (error) {
     status.textContent = "読み取り候補がありません。商品名を入力してください。";
     updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
+    stopBarcodeScan();
+  }
+}
+
+async function startZxingVideoScan() {
+  const status = document.getElementById("barcodeStatus");
+  const video = document.getElementById("barcodeVideo");
+  zxingCodeReader = createZxingBarcodeReader();
+  if (!zxingCodeReader) {
+    status.textContent = "このブラウザではカメラ読み取りを利用できません。バーコード番号を入力してください。";
+    return;
+  }
+  try {
+    status.textContent = "カメラ起動中...";
+    document.getElementById("barcodeScanner").hidden = false;
+    document.getElementById("stopBarcodeScan").hidden = false;
+    const handleResult = (result) => {
+      if (!result) return;
+      registerBarcodeDetection(result.getText(), result.getBarcodeFormat());
+    };
+    if (typeof zxingCodeReader.decodeFromConstraints === "function") {
+      await zxingCodeReader.decodeFromConstraints({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      }, video, handleResult);
+    } else {
+      await zxingCodeReader.decodeFromVideoDevice(null, video, handleResult);
+    }
+    barcodeStream = video.srcObject;
+    barcodeVideoTrack = barcodeStream?.getVideoTracks?.()[0] || null;
+    configureBarcodeCameraControls();
+    status.textContent = "バーコードを枠いっぱいに合わせてください";
+  } catch {
+    status.textContent = "カメラを起動できませんでした。バーコード番号を入力してください。";
     stopBarcodeScan();
   }
 }
@@ -1197,16 +1234,14 @@ function createZxingBarcodeReader() {
   return new ZXing.BrowserMultiFormatReader(hints);
 }
 
-function startBarcodeScanLoop() {
+function startNativeBarcodeScanLoop() {
   const video = document.getElementById("barcodeVideo");
   barcodeScanTimer = window.setInterval(async () => {
     if (!barcodeStream || barcodeScanBusy || video.readyState < 2) return;
     barcodeScanBusy = true;
     try {
       const canvas = captureBarcodeRegion(video);
-      const detected = barcodeDetector
-        ? await detectBarcodeWithNativeApi(canvas)
-        : detectBarcodeWithZxing(canvas);
+      const detected = await detectBarcodeWithNativeApi(canvas);
       if (detected) registerBarcodeDetection(detected.value, detected.format);
     } catch {
       // A frame without a readable code is expected while the camera is moving.
@@ -1244,18 +1279,6 @@ async function detectBarcodeWithNativeApi(canvas) {
   const codes = await barcodeDetector.detect(canvas);
   const code = codes.find((entry) => isAllowedBarcodeFormat(entry.format));
   return code ? { value: code.rawValue, format: code.format } : null;
-}
-
-function detectBarcodeWithZxing(canvas) {
-  try {
-    const result = zxingCodeReader.decodeFromCanvas(canvas);
-    return {
-      value: result.getText(),
-      format: result.getBarcodeFormat()
-    };
-  } catch {
-    return null;
-  }
 }
 
 function registerBarcodeDetection(value, format) {
@@ -1421,87 +1444,6 @@ async function toggleBarcodeTorch() {
     barcodeTorchEnabled = false;
     document.getElementById("barcodeStatus").textContent = "この端末ではライトを使用できません。";
   }
-}
-
-async function readBarcodeFromImage(event) {
-  const file = event.target.files?.[0];
-  event.target.value = "";
-  if (!file) return;
-  stopBarcodeScan();
-  hideBarcodeConfirmation();
-  const status = document.getElementById("barcodeStatus");
-  status.textContent = "画像を解析中...";
-  try {
-    const canvas = document.getElementById("barcodeCanvas");
-    await drawImageFileToCanvas(file, canvas);
-    const detector = await createBarcodeDetector();
-    let detected = null;
-    if (detector) {
-      const codes = await detector.detect(canvas);
-      const code = codes.find((entry) =>
-        isAllowedBarcodeFormat(entry.format) && isValidRetailBarcode(normalizeBarcodeValue(entry.rawValue))
-      );
-      if (code) detected = normalizeBarcodeValue(code.rawValue);
-    }
-    if (!detected) {
-      const reader = createZxingBarcodeReader();
-      if (reader) {
-        zxingCodeReader = reader;
-        const result = detectBarcodeWithZxing(canvas);
-        if (result && isAllowedBarcodeFormat(result.format) && isValidRetailBarcode(normalizeBarcodeValue(result.value))) {
-          detected = normalizeBarcodeValue(result.value);
-        }
-      }
-    }
-    if (!detected) {
-      status.textContent = "画像から読み取り候補が見つかりませんでした。バーコード番号または商品名を入力してください。";
-      return;
-    }
-    pendingBarcode = detected;
-    document.getElementById("detectedBarcode").textContent = detected;
-    document.getElementById("barcodeConfirmation").hidden = false;
-    status.textContent = "画像から番号を読み取りました。検索する番号を確認してください。";
-    if (navigator.vibrate) navigator.vibrate(80);
-  } catch {
-    status.textContent = "画像を読み取れませんでした。別の画像を選ぶか、番号を直接入力してください。";
-  }
-}
-
-async function drawImageFileToCanvas(file, canvas) {
-  const maxWidth = 1600;
-  if ("createImageBitmap" in window) {
-    try {
-      const bitmap = await createImageBitmap(file);
-      const scale = Math.min(1, maxWidth / bitmap.width);
-      canvas.width = Math.round(bitmap.width * scale);
-      canvas.height = Math.round(bitmap.height * scale);
-      canvas.getContext("2d", { willReadFrequently: true }).drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      bitmap.close();
-      return;
-    } catch {
-      // Fall back to an image element for Safari and unsupported image formats.
-    }
-  }
-
-  const imageUrl = URL.createObjectURL(file);
-  try {
-    const image = await loadBarcodeImage(imageUrl);
-    const scale = Math.min(1, maxWidth / image.naturalWidth);
-    canvas.width = Math.round(image.naturalWidth * scale);
-    canvas.height = Math.round(image.naturalHeight * scale);
-    canvas.getContext("2d", { willReadFrequently: true }).drawImage(image, 0, 0, canvas.width, canvas.height);
-  } finally {
-    URL.revokeObjectURL(imageUrl);
-  }
-}
-
-function loadBarcodeImage(source) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = reject;
-    image.src = source;
-  });
 }
 
 async function lookupBarcodeProduct() {
@@ -1821,7 +1763,6 @@ function resetQuickForm() {
   document.getElementById("productSuggestions").innerHTML = "";
   document.getElementById("productSuggestions").hidden = true;
   document.getElementById("barcodeStatus").textContent = "";
-  document.getElementById("barcodeImage").value = "";
   hideBarcodeConfirmation();
   resetBarcodeDetection();
   updateProductSearchGuide();
