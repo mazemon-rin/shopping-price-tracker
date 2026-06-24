@@ -405,6 +405,26 @@ textarea {
   align-items: center;
 }
 
+.file-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .product-search-row {
   grid-column: 1 / -1;
   display: grid;
@@ -424,6 +444,7 @@ textarea {
 }
 
 .barcode-scanner {
+  position: relative;
   grid-column: 1 / -1;
   overflow: hidden;
   border: 1px solid var(--line-soft);
@@ -435,8 +456,117 @@ textarea {
 .barcode-scanner video {
   display: block;
   width: 100%;
-  max-height: 320px;
+  height: clamp(240px, 52vw, 360px);
   object-fit: cover;
+}
+
+.scanner-shade {
+  position: absolute;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.58);
+  pointer-events: none;
+}
+
+.scanner-shade-top,
+.scanner-shade-bottom {
+  left: 0;
+  width: 100%;
+  height: 32%;
+}
+
+.scanner-shade-top {
+  top: 0;
+}
+
+.scanner-shade-bottom {
+  bottom: 0;
+}
+
+.scanner-shade-left,
+.scanner-shade-right {
+  top: 32%;
+  width: 8%;
+  height: 36%;
+}
+
+.scanner-shade-left {
+  left: 0;
+}
+
+.scanner-shade-right {
+  right: 0;
+}
+
+.barcode-target {
+  position: absolute;
+  z-index: 2;
+  top: 32%;
+  left: 8%;
+  width: 84%;
+  height: 36%;
+  border: 3px solid rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(0, 113, 227, 0.7);
+  pointer-events: none;
+}
+
+.scanner-guide {
+  position: absolute;
+  z-index: 3;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  margin: 0;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.75);
+  pointer-events: none;
+}
+
+.camera-controls,
+.barcode-confirmation {
+  grid-column: 1 / -1;
+}
+
+.camera-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+
+.camera-controls label {
+  flex: 1 1 220px;
+}
+
+.barcode-confirmation {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: var(--shadow-soft);
+}
+
+.barcode-confirmation > span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.barcode-confirmation > strong {
+  color: var(--text);
+  font-size: clamp(1.25rem, 4vw, 1.7rem);
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.barcode-confirmation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .barcode-help {
@@ -786,8 +916,14 @@ textarea {
   .store-search-row button,
   .address-search-row button,
   .search-row button,
-  .barcode-row button {
+  .barcode-row button,
+  .barcode-row .file-button {
     width: 100%;
+  }
+
+  .barcode-confirmation-actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .off-result,
