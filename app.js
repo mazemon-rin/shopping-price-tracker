@@ -515,7 +515,8 @@ function renderProductSuggestions() {
     return;
   }
   const products = state.products
-    .filter((product) => normalizeProductName(product.name).includes(query))
+    .filter((product) => normalizeProductName(product.name).startsWith(query))
+    .sort((a, b) => a.name.localeCompare(b.name, "ja"))
     .slice(0, 6);
   if (!products.length || document.activeElement !== input) {
     list.hidden = true;
