@@ -64,6 +64,14 @@ let nearbyStorePage = 0;
 let barcodeStream = null;
 let barcodeScanTimer = null;
 let zxingCodeReader = null;
+let barcodeDetector = null;
+let barcodeScanBusy = false;
+let barcodeCandidate = "";
+let barcodeCandidateCount = 0;
+let barcodeCandidateLastSeen = 0;
+let pendingBarcode = "";
+let barcodeVideoTrack = null;
+let barcodeTorchEnabled = false;
 
 const els = {
   tabs: document.querySelectorAll(".tab-button"),
@@ -116,6 +124,11 @@ function bindEvents() {
   document.getElementById("scanBarcode").addEventListener("click", startBarcodeScan);
   document.getElementById("stopBarcodeScan").addEventListener("click", () => stopBarcodeScan(true));
   document.getElementById("lookupBarcode").addEventListener("click", lookupBarcodeProduct);
+  document.getElementById("barcodeImage").addEventListener("change", readBarcodeFromImage);
+  document.getElementById("confirmBarcodeSearch").addEventListener("click", confirmDetectedBarcode);
+  document.getElementById("retryBarcodeScan").addEventListener("click", retryBarcodeScan);
+  document.getElementById("toggleBarcodeTorch").addEventListener("click", toggleBarcodeTorch);
+  document.getElementById("barcodeZoom").addEventListener("input", updateBarcodeZoom);
   document.getElementById("productName").addEventListener("input", suggestProductCategory);
   document.getElementById("productCategory").addEventListener("input", markProductCategoryEdited);
   bindNumericInputNormalization();
@@ -732,33 +745,33 @@ async function startBarcodeScan() {
     updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
     return;
   }
-  if ("BarcodeDetector" in window) {
-    await startNativeBarcodeScan();
-    return;
-  }
-  if (window.ZXing?.BrowserMultiFormatReader) {
-    await startZxingBarcodeScan();
-    return;
-  }
-  status.textContent = "読み取り候補がありません。商品名を入力してください。";
-  updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
-}
-
-async function startNativeBarcodeScan() {
-  const status = document.getElementById("barcodeStatus");
+  stopBarcodeScan();
+  resetBarcodeDetection();
+  hideBarcodeConfirmation();
   try {
     status.textContent = "カメラ起動中...";
     const video = document.getElementById("barcodeVideo");
     barcodeStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" } },
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
       audio: false
     });
+    barcodeVideoTrack = barcodeStream.getVideoTracks()[0] || null;
     video.srcObject = barcodeStream;
     await video.play();
     document.getElementById("barcodeScanner").hidden = false;
     document.getElementById("stopBarcodeScan").hidden = false;
-    status.textContent = "バーコードをカメラに映してください";
-    scanBarcodeLoop(new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] }));
+    configureBarcodeCameraControls();
+    barcodeDetector = await createBarcodeDetector();
+    zxingCodeReader = barcodeDetector ? null : createZxingBarcodeReader();
+    if (!barcodeDetector && !zxingCodeReader) {
+      throw new Error("No supported barcode reader");
+    }
+    status.textContent = "バーコードを枠いっぱいに合わせてください";
+    startBarcodeScanLoop();
   } catch (error) {
     status.textContent = "読み取り候補がありません。商品名を入力してください。";
     updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
@@ -766,49 +779,177 @@ async function startNativeBarcodeScan() {
   }
 }
 
-async function startZxingBarcodeScan() {
-  const status = document.getElementById("barcodeStatus");
+async function createBarcodeDetector() {
+  if (!("BarcodeDetector" in window)) return null;
   try {
-    status.textContent = "カメラ起動中...";
-    document.getElementById("barcodeScanner").hidden = false;
-    document.getElementById("stopBarcodeScan").hidden = false;
-    zxingCodeReader = new ZXing.BrowserMultiFormatReader();
-    await zxingCodeReader.decodeFromVideoDevice(null, "barcodeVideo", async (result) => {
-      if (!result) return;
-      document.getElementById("quickBarcode").value = result.getText();
-      document.getElementById("barcodeStatus").textContent = "読み取りました。商品情報を検索中...";
-      stopBarcodeScan();
-      await lookupBarcodeProduct();
-    });
-    status.textContent = "バーコードをカメラに映してください";
-  } catch (error) {
-    status.textContent = "読み取り候補がありません。商品名を入力してください。";
-    updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
-    stopBarcodeScan();
+    const requestedFormats = ["ean_13", "ean_8", "upc_a"];
+    if (typeof BarcodeDetector.getSupportedFormats === "function") {
+      const supported = await BarcodeDetector.getSupportedFormats();
+      if (!requestedFormats.every((format) => supported.includes(format))) return null;
+    }
+    return new BarcodeDetector({ formats: requestedFormats });
+  } catch {
+    return null;
   }
 }
 
-function scanBarcodeLoop(detector) {
+function createZxingBarcodeReader() {
+  if (!window.ZXing?.BrowserMultiFormatReader) return null;
+  const hints = new Map();
+  hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+    ZXing.BarcodeFormat.EAN_13,
+    ZXing.BarcodeFormat.EAN_8,
+    ZXing.BarcodeFormat.UPC_A
+  ]);
+  hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+  return new ZXing.BrowserMultiFormatReader(hints);
+}
+
+function startBarcodeScanLoop() {
   const video = document.getElementById("barcodeVideo");
   barcodeScanTimer = window.setInterval(async () => {
-    if (!barcodeStream || video.readyState < 2) return;
+    if (!barcodeStream || barcodeScanBusy || video.readyState < 2) return;
+    barcodeScanBusy = true;
     try {
-      const codes = await detector.detect(video);
-      if (!codes.length) return;
-      const barcode = codes[0].rawValue;
-      document.getElementById("quickBarcode").value = barcode;
-      document.getElementById("barcodeStatus").textContent = "読み取りました。商品情報を検索中...";
-      stopBarcodeScan();
-      await lookupBarcodeProduct();
+      const canvas = captureBarcodeRegion(video);
+      const detected = barcodeDetector
+        ? await detectBarcodeWithNativeApi(canvas)
+        : detectBarcodeWithZxing(canvas);
+      if (detected) registerBarcodeDetection(detected.value, detected.format);
     } catch {
-      document.getElementById("barcodeStatus").textContent = "読み取り中です";
+      // A frame without a readable code is expected while the camera is moving.
+    } finally {
+      barcodeScanBusy = false;
     }
-  }, 600);
+  }, 350);
+}
+
+function captureBarcodeRegion(video) {
+  const canvas = document.getElementById("barcodeCanvas");
+  const sourceWidth = video.videoWidth;
+  const sourceHeight = video.videoHeight;
+  const cropWidth = Math.round(sourceWidth * 0.84);
+  const cropHeight = Math.round(sourceHeight * 0.36);
+  const sourceX = Math.round((sourceWidth - cropWidth) / 2);
+  const sourceY = Math.round((sourceHeight - cropHeight) / 2);
+  canvas.width = cropWidth;
+  canvas.height = cropHeight;
+  canvas.getContext("2d", { willReadFrequently: true }).drawImage(
+    video,
+    sourceX,
+    sourceY,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    cropWidth,
+    cropHeight
+  );
+  return canvas;
+}
+
+async function detectBarcodeWithNativeApi(canvas) {
+  const codes = await barcodeDetector.detect(canvas);
+  const code = codes.find((entry) => isAllowedBarcodeFormat(entry.format));
+  return code ? { value: code.rawValue, format: code.format } : null;
+}
+
+function detectBarcodeWithZxing(canvas) {
+  try {
+    const result = zxingCodeReader.decodeFromCanvas(canvas);
+    return {
+      value: result.getText(),
+      format: result.getBarcodeFormat()
+    };
+  } catch {
+    return null;
+  }
+}
+
+function registerBarcodeDetection(value, format) {
+  const barcode = normalizeBarcodeValue(value);
+  if (!isAllowedBarcodeFormat(format) || !isValidRetailBarcode(barcode)) return;
+  const now = Date.now();
+  if (barcode === barcodeCandidate && now - barcodeCandidateLastSeen <= 1500) {
+    barcodeCandidateCount += 1;
+  } else {
+    barcodeCandidate = barcode;
+    barcodeCandidateCount = 1;
+  }
+  barcodeCandidateLastSeen = now;
+  document.getElementById("barcodeStatus").textContent = `番号を確認中... ${barcodeCandidateCount}/3`;
+  if (barcodeCandidateCount >= 3) completeBarcodeDetection(barcode);
+}
+
+function completeBarcodeDetection(barcode) {
+  pendingBarcode = barcode;
+  stopBarcodeScan();
+  document.getElementById("detectedBarcode").textContent = barcode;
+  document.getElementById("barcodeConfirmation").hidden = false;
+  document.getElementById("barcodeStatus").textContent = "同じ番号を3回確認しました。検索する番号を確認してください。";
+  if (navigator.vibrate) navigator.vibrate(80);
+}
+
+function normalizeBarcodeValue(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function isAllowedBarcodeFormat(format) {
+  const formatName = typeof format === "number" && window.ZXing?.BarcodeFormat
+    ? ZXing.BarcodeFormat[format]
+    : format;
+  const normalized = String(formatName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return ["ean13", "ean8", "upca"].includes(normalized);
+}
+
+function isValidRetailBarcode(barcode) {
+  if (![8, 12, 13].includes(barcode.length) || !/^\d+$/.test(barcode)) return false;
+  return hasValidBarcodeCheckDigit(barcode);
+}
+
+function hasValidBarcodeCheckDigit(barcode) {
+  const digits = barcode.split("").map(Number);
+  const checkDigit = digits.pop();
+  const sum = digits.reduce((total, digit, index) => {
+    const positionFromRight = digits.length - index;
+    return total + digit * (positionFromRight % 2 === 1 ? 3 : 1);
+  }, 0);
+  return (10 - (sum % 10)) % 10 === checkDigit;
+}
+
+function resetBarcodeDetection() {
+  barcodeCandidate = "";
+  barcodeCandidateCount = 0;
+  barcodeCandidateLastSeen = 0;
+  barcodeScanBusy = false;
+}
+
+function hideBarcodeConfirmation() {
+  pendingBarcode = "";
+  document.getElementById("detectedBarcode").textContent = "";
+  document.getElementById("barcodeConfirmation").hidden = true;
+}
+
+async function confirmDetectedBarcode() {
+  if (!pendingBarcode) return;
+  document.getElementById("quickBarcode").value = pendingBarcode;
+  hideBarcodeConfirmation();
+  await lookupBarcodeProduct();
+}
+
+async function retryBarcodeScan() {
+  hideBarcodeConfirmation();
+  document.getElementById("quickBarcode").value = "";
+  await startBarcodeScan();
 }
 
 function stopBarcodeScan(showNoCandidate = false) {
   if (zxingCodeReader) {
-    zxingCodeReader.reset();
+    try {
+      zxingCodeReader.reset();
+    } catch {
+      // The canvas-based reader may not have an active video session to reset.
+    }
     zxingCodeReader = null;
   }
   if (barcodeScanTimer) {
@@ -819,22 +960,170 @@ function stopBarcodeScan(showNoCandidate = false) {
     barcodeStream.getTracks().forEach((track) => track.stop());
     barcodeStream = null;
   }
+  barcodeDetector = null;
+  barcodeVideoTrack = null;
+  barcodeTorchEnabled = false;
+  barcodeScanBusy = false;
   const video = document.getElementById("barcodeVideo");
   video.srcObject = null;
   document.getElementById("barcodeScanner").hidden = true;
   document.getElementById("stopBarcodeScan").hidden = true;
+  document.getElementById("cameraControls").hidden = true;
+  document.getElementById("toggleBarcodeTorch").hidden = true;
+  document.getElementById("barcodeZoomLabel").hidden = true;
   if (showNoCandidate && !document.getElementById("quickBarcode").value.trim()) {
     document.getElementById("barcodeStatus").textContent = "読み取り候補がありません。商品名を入力してください。";
     updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
   }
 }
 
+async function configureBarcodeCameraControls() {
+  if (!barcodeVideoTrack?.getCapabilities) return;
+  const capabilities = barcodeVideoTrack.getCapabilities();
+  const controls = document.getElementById("cameraControls");
+  const zoomLabel = document.getElementById("barcodeZoomLabel");
+  const zoom = document.getElementById("barcodeZoom");
+  const torch = document.getElementById("toggleBarcodeTorch");
+  let hasControl = false;
+
+  if (Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes("continuous")) {
+    try {
+      await barcodeVideoTrack.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+    } catch {
+      // Continuous focus is a best-effort enhancement.
+    }
+  }
+
+  if (capabilities.zoom) {
+    zoom.min = capabilities.zoom.min;
+    zoom.max = capabilities.zoom.max;
+    zoom.step = capabilities.zoom.step || 0.1;
+    zoom.value = barcodeVideoTrack.getSettings?.().zoom || capabilities.zoom.min;
+    zoomLabel.hidden = false;
+    hasControl = true;
+  }
+  if (capabilities.torch) {
+    torch.hidden = false;
+    torch.textContent = "ライトを点灯";
+    hasControl = true;
+  }
+  controls.hidden = !hasControl;
+}
+
+async function updateBarcodeZoom(event) {
+  if (!barcodeVideoTrack) return;
+  try {
+    await barcodeVideoTrack.applyConstraints({ advanced: [{ zoom: Number(event.target.value) }] });
+  } catch {
+    document.getElementById("barcodeStatus").textContent = "この端末ではズームを変更できません。";
+  }
+}
+
+async function toggleBarcodeTorch() {
+  if (!barcodeVideoTrack) return;
+  barcodeTorchEnabled = !barcodeTorchEnabled;
+  try {
+    await barcodeVideoTrack.applyConstraints({ advanced: [{ torch: barcodeTorchEnabled }] });
+    document.getElementById("toggleBarcodeTorch").textContent = barcodeTorchEnabled ? "ライトを消灯" : "ライトを点灯";
+  } catch {
+    barcodeTorchEnabled = false;
+    document.getElementById("barcodeStatus").textContent = "この端末ではライトを使用できません。";
+  }
+}
+
+async function readBarcodeFromImage(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  stopBarcodeScan();
+  hideBarcodeConfirmation();
+  const status = document.getElementById("barcodeStatus");
+  status.textContent = "画像を解析中...";
+  try {
+    const canvas = document.getElementById("barcodeCanvas");
+    await drawImageFileToCanvas(file, canvas);
+    const detector = await createBarcodeDetector();
+    let detected = null;
+    if (detector) {
+      const codes = await detector.detect(canvas);
+      const code = codes.find((entry) =>
+        isAllowedBarcodeFormat(entry.format) && isValidRetailBarcode(normalizeBarcodeValue(entry.rawValue))
+      );
+      if (code) detected = normalizeBarcodeValue(code.rawValue);
+    }
+    if (!detected) {
+      const reader = createZxingBarcodeReader();
+      if (reader) {
+        zxingCodeReader = reader;
+        const result = detectBarcodeWithZxing(canvas);
+        if (result && isAllowedBarcodeFormat(result.format) && isValidRetailBarcode(normalizeBarcodeValue(result.value))) {
+          detected = normalizeBarcodeValue(result.value);
+        }
+      }
+    }
+    if (!detected) {
+      status.textContent = "画像から読み取り候補が見つかりませんでした。バーコード番号または商品名を入力してください。";
+      return;
+    }
+    pendingBarcode = detected;
+    document.getElementById("detectedBarcode").textContent = detected;
+    document.getElementById("barcodeConfirmation").hidden = false;
+    status.textContent = "画像から番号を読み取りました。検索する番号を確認してください。";
+    if (navigator.vibrate) navigator.vibrate(80);
+  } catch {
+    status.textContent = "画像を読み取れませんでした。別の画像を選ぶか、番号を直接入力してください。";
+  }
+}
+
+async function drawImageFileToCanvas(file, canvas) {
+  const maxWidth = 1600;
+  if ("createImageBitmap" in window) {
+    try {
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, maxWidth / bitmap.width);
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      canvas.getContext("2d", { willReadFrequently: true }).drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+      return;
+    } catch {
+      // Fall back to an image element for Safari and unsupported image formats.
+    }
+  }
+
+  const imageUrl = URL.createObjectURL(file);
+  try {
+    const image = await loadBarcodeImage(imageUrl);
+    const scale = Math.min(1, maxWidth / image.naturalWidth);
+    canvas.width = Math.round(image.naturalWidth * scale);
+    canvas.height = Math.round(image.naturalHeight * scale);
+    canvas.getContext("2d", { willReadFrequently: true }).drawImage(image, 0, 0, canvas.width, canvas.height);
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
+function loadBarcodeImage(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = source;
+  });
+}
+
 async function lookupBarcodeProduct() {
-  const barcode = document.getElementById("quickBarcode").value.trim();
+  const barcodeInput = document.getElementById("quickBarcode");
+  const barcode = normalizeBarcodeValue(barcodeInput.value);
   const status = document.getElementById("barcodeStatus");
   if (!barcode) {
     status.textContent = "読み取り候補がありません。商品名を入力してください。";
     updateProductSearchGuide("商品名を入力し、「商品候補を検索」を押してください。");
+    return;
+  }
+  barcodeInput.value = barcode;
+  if (!isValidRetailBarcode(barcode)) {
+    status.textContent = "EAN-13、EAN-8、UPC-Aの有効な番号を入力してください。";
     return;
   }
   try {
@@ -1057,6 +1346,9 @@ function resetQuickForm() {
   document.getElementById("productSuggestions").innerHTML = "";
   document.getElementById("productSuggestions").hidden = true;
   document.getElementById("barcodeStatus").textContent = "";
+  document.getElementById("barcodeImage").value = "";
+  hideBarcodeConfirmation();
+  resetBarcodeDetection();
   updateProductSearchGuide();
   stopBarcodeScan();
   openFoodFactsCandidates = [];
