@@ -37,27 +37,30 @@
         <p>商品名・店舗名・価格だけで記録できます。未登録の商品や店舗は自動で追加されます。<br>店舗の種類・エリア・メモなどの詳しい情報は、店舗タブであとから入力・編集できます。</p>
       </div>
       <form id="quickForm" class="card form-card">
-        <label>商品名<input id="quickProductName" autocomplete="off" required placeholder="例: キャベツ"></label>
-        <datalist id="productNameOptions"></datalist>
-        <div id="productSuggestions" class="suggestion-list" hidden></div>
-        <details class="quick-details">
+        <details class="quick-details" open>
           <summary>商品検索</summary>
           <div class="details-grid">
             <label>バーコード<input id="quickBarcode" placeholder="候補を選ぶと入ります"></label>
             <div class="barcode-row" id="barcodeActions">
               <button type="button" class="secondary" id="scanBarcode">バーコードを読み取る</button>
               <button type="button" class="secondary" id="lookupBarcode">バーコードで検索</button>
-              <button type="button" class="secondary" id="searchOpenFoodFacts">商品候補を検索</button>
               <button type="button" class="secondary" id="stopBarcodeScan" hidden>読み取りを停止</button>
             </div>
-            <span id="openFoodFactsStatus" class="search-status barcode-status" aria-live="polite"></span>
-            <div id="openFoodFactsResults" class="off-results" aria-live="polite"></div>
             <div id="barcodeScanner" class="barcode-scanner" hidden>
               <video id="barcodeVideo" playsinline muted></video>
             </div>
             <span id="barcodeStatus" class="search-status barcode-status" aria-live="polite"></span>
             <p id="barcodeHelp" class="hint barcode-help"></p>
             <p class="hint barcode-help">お店独自のバーコード、値引きシール、店舗専用コードは読み取れない場合があります。一般的な商品バーコードのみ対応しています。</p>
+            <div class="product-search-row">
+              <label>商品名<input id="quickProductName" autocomplete="off" required placeholder="例: キャベツ"></label>
+              <button type="button" class="secondary" id="searchOpenFoodFacts">商品候補を検索</button>
+            </div>
+            <datalist id="productNameOptions"></datalist>
+            <div id="productSuggestions" class="suggestion-list" hidden></div>
+            <p id="productSearchGuide" class="hint product-search-guide" aria-live="polite">商品名を入力してください。入力できたら「商品候補を検索」を押してください。</p>
+            <span id="openFoodFactsStatus" class="search-status barcode-status" aria-live="polite"></span>
+            <div id="openFoodFactsResults" class="off-results" aria-live="polite"></div>
             <label>メーカー名<input id="quickManufacturer" placeholder="例: カルビー"></label>
             <label>カテゴリ<input id="quickProductCategory" list="categoryOptions" placeholder="例: 野菜"></label>
             <div class="half-row">
