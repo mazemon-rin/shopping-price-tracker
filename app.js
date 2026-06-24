@@ -52,6 +52,44 @@ const OPEN_FOOD_FACTS_SEARCH_TERMS = {
   "マヨネーズ": "mayonnaise"
 };
 
+const PRODUCT_NAME_TRANSLATIONS = [
+  ["potato chips", "ポテトチップス"],
+  ["corn flakes", "コーンフレーク"],
+  ["ice cream", "アイスクリーム"],
+  ["chocolate", "チョコレート"],
+  ["cookies", "クッキー"],
+  ["cookie", "クッキー"],
+  ["biscuits", "ビスケット"],
+  ["biscuit", "ビスケット"],
+  ["yogurt", "ヨーグルト"],
+  ["cheese", "チーズ"],
+  ["butter", "バター"],
+  ["milk", "牛乳"],
+  ["coffee", "コーヒー"],
+  ["green tea", "緑茶"],
+  ["tea", "お茶"],
+  ["orange juice", "オレンジジュース"],
+  ["apple juice", "りんごジュース"],
+  ["juice", "ジュース"],
+  ["sparkling water", "炭酸水"],
+  ["water", "水"],
+  ["bread", "パン"],
+  ["noodles", "麺"],
+  ["noodle", "麺"],
+  ["ramen", "ラーメン"],
+  ["pasta", "パスタ"],
+  ["rice", "米"],
+  ["mayonnaise", "マヨネーズ"],
+  ["ketchup", "ケチャップ"],
+  ["soy sauce", "醤油"],
+  ["sauce", "ソース"],
+  ["candy", "飴"],
+  ["gummy", "グミ"],
+  ["apple", "りんご"],
+  ["banana", "バナナ"],
+  ["strawberry", "いちご"]
+];
+
 const OPEN_FOOD_FACTS_BASE_URLS = [
   "https://world.openfoodfacts.org",
   "https://jp.openfoodfacts.org"
@@ -98,6 +136,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("priceDate").value = today();
   bindEvents();
   renderBarcodeHelp();
+  renderQuickCategoryTabs();
   render();
 });
 
@@ -116,6 +155,7 @@ function bindEvents() {
   document.getElementById("quickPriceStore").addEventListener("input", clearNearbyStoreResults);
   document.getElementById("quickPriceStore").addEventListener("change", clearNearbyStoreResults);
   document.getElementById("quickProductCategory").addEventListener("input", markQuickCategoryEdited);
+  document.getElementById("quickCategoryTabs").addEventListener("click", selectQuickCategoryTab);
   document.getElementById("searchOpenFoodFacts").addEventListener("click", searchOpenFoodFacts);
   document.getElementById("findNearbyStores").addEventListener("click", findNearbyStores);
   document.getElementById("findStoresByName").addEventListener("click", findStoresByName);
@@ -768,11 +808,13 @@ function updateQuickProductFields() {
     document.getElementById("quickBarcode").value = product.barcode || "";
     document.getElementById("quickProductWeightGrams").value = product.weightGrams || "";
     document.getElementById("quickProductUnitCount").value = product.unitCount || "";
+    updateQuickCategoryTabs();
     return;
   }
   if (categoryInput.dataset.userEdited !== "true") {
     categoryInput.value = getSuggestedCategory(nameInput.value);
   }
+  updateQuickCategoryTabs();
 }
 
 function handleQuickProductNameInput() {
@@ -871,6 +913,33 @@ function renderRecentStores() {
 
 function markQuickCategoryEdited() {
   document.getElementById("quickProductCategory").dataset.userEdited = "true";
+  updateQuickCategoryTabs();
+}
+
+function renderQuickCategoryTabs() {
+  const container = document.getElementById("quickCategoryTabs");
+  container.innerHTML = PRODUCT_CATEGORIES.map((category) => `
+    <button type="button" class="category-tab" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>
+  `).join("");
+  updateQuickCategoryTabs();
+}
+
+function selectQuickCategoryTab(event) {
+  const button = event.target.closest("[data-category]");
+  if (!button) return;
+  const categoryInput = document.getElementById("quickProductCategory");
+  categoryInput.value = button.dataset.category;
+  categoryInput.dataset.userEdited = "true";
+  updateQuickCategoryTabs();
+}
+
+function updateQuickCategoryTabs() {
+  const selected = document.getElementById("quickProductCategory")?.value.trim();
+  document.querySelectorAll("#quickCategoryTabs [data-category]").forEach((button) => {
+    const active = button.dataset.category === selected;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 }
 
 async function searchOpenFoodFacts() {
@@ -946,7 +1015,7 @@ async function requestOpenFoodFacts(query) {
     action: "process",
     json: "1",
     page_size: "8",
-    fields: "code,product_name,generic_name,brands,quantity,categories,categories_tags,image_front_url,image_url"
+    fields: "code,product_name,product_name_ja,product_name_en,generic_name,generic_name_ja,generic_name_en,brands,quantity,categories,categories_tags,image_front_url,image_url"
   });
   let lastError = null;
   for (const baseUrl of OPEN_FOOD_FACTS_BASE_URLS) {
@@ -980,7 +1049,7 @@ async function requestOpenFoodFactsByBarcode(barcode) {
   let notFound = false;
   for (const baseUrl of OPEN_FOOD_FACTS_BASE_URLS) {
     try {
-      const response = await fetch(`${baseUrl}/api/v2/product/${encodeURIComponent(code)}.json?fields=code,product_name,generic_name,brands,quantity,categories,categories_tags,image_front_url,image_url`, {
+      const response = await fetch(`${baseUrl}/api/v2/product/${encodeURIComponent(code)}.json?fields=code,product_name,product_name_ja,product_name_en,generic_name,generic_name_ja,generic_name_en,brands,quantity,categories,categories_tags,image_front_url,image_url`, {
         cache: "no-store",
         credentials: "omit",
         mode: "cors"
@@ -1009,7 +1078,7 @@ async function requestOpenFoodFactsByBarcode(barcode) {
 }
 
 function hasUsefulOpenFoodFactsName(product) {
-  return Boolean(product.product_name || product.generic_name);
+  return Boolean(getOriginalProductName(product));
 }
 
 function renderOpenFoodFactsResults(products) {
@@ -1019,7 +1088,8 @@ function renderOpenFoodFactsResults(products) {
     return;
   }
   results.innerHTML = products.map((product, index) => {
-    const name = product.product_name || product.generic_name || "名称なし";
+    const originalName = getOriginalProductName(product);
+    const name = getDisplayProductName(product) || "名称なし";
     const brand = product.brands || "メーカー不明";
     const quantity = product.quantity || "内容量不明";
     const category = getOpenFoodFactsCategory(product) || "カテゴリ候補なし";
@@ -1031,6 +1101,7 @@ function renderOpenFoodFactsResults(products) {
         ${imageUrl ? `<img class="candidate-image" src="${escapeHtml(imageUrl)}" alt="" loading="lazy">` : ""}
         <div>
           <strong>${escapeHtml(name)}</strong>
+          ${originalName && originalName !== name ? `<small class="original-product-name">元の表記: ${escapeHtml(originalName)}</small>` : ""}
           <p>${escapeHtml(brand)} / ${escapeHtml(quantity)} / ${escapeHtml(category)}${escapeHtml(code)}</p>
           <small>${escapeHtml(source)}</small>
         </div>
@@ -1066,10 +1137,11 @@ function applyOpenFoodFactsProduct(product) {
       quantityUnit: saved.quantityUnit || "",
       updatedAt: saved.updatedAt || today()
     };
+    updateQuickCategoryTabs();
     updateProductSearchGuide();
     return;
   }
-  const name = product.product_name || product.generic_name || "";
+  const name = getDisplayProductName(product);
   const manufacturer = product.brands || "";
   const grams = extractGrams(product.quantity);
   const quantityInfo = extractQuantityInfo(product.quantity);
@@ -1089,7 +1161,42 @@ function applyOpenFoodFactsProduct(product) {
   if (grams) document.getElementById("quickProductWeightGrams").value = grams;
   if (category) document.getElementById("quickProductCategory").value = category;
   document.getElementById("quickProductCategory").dataset.userEdited = category ? "true" : "false";
+  updateQuickCategoryTabs();
   updateProductSearchGuide();
+}
+
+function getOriginalProductName(product) {
+  return product.product_name_ja
+    || product.generic_name_ja
+    || product.product_name
+    || product.generic_name
+    || product.product_name_en
+    || product.generic_name_en
+    || "";
+}
+
+function getDisplayProductName(product) {
+  const japaneseName = product.product_name_ja || product.generic_name_ja;
+  if (japaneseName) return japaneseName.trim();
+  const original = getOriginalProductName(product).trim();
+  if (!original || containsJapanese(original)) return original;
+  return translateCommonProductWords(original);
+}
+
+function containsJapanese(value) {
+  return /[\u3040-\u30ff\u3400-\u9fff]/u.test(value);
+}
+
+function translateCommonProductWords(value) {
+  let translated = value;
+  PRODUCT_NAME_TRANSLATIONS.forEach(([source, target]) => {
+    translated = translated.replace(new RegExp(`\\b${escapeRegExp(source)}\\b`, "gi"), target);
+  });
+  return translated;
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function rankAndDedupeProductCandidates(products, barcode = "") {
@@ -1098,7 +1205,7 @@ function rankAndDedupeProductCandidates(products, barcode = "") {
   return products
     .filter((product) => {
       const code = normalizeBarcodeValue(product.code);
-      const key = code || `${normalizeProductName(product.product_name || product.generic_name)}|${normalizeProductName(product.brands)}`;
+      const key = code || `${normalizeProductName(getDisplayProductName(product))}|${normalizeProductName(product.brands)}`;
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -1109,7 +1216,7 @@ function rankAndDedupeProductCandidates(products, barcode = "") {
 function productCandidateScore(product, targetBarcode) {
   let score = 0;
   if (targetBarcode && barcodesEquivalent(product.code, targetBarcode)) score += 100;
-  if (product.product_name || product.generic_name) score += 20;
+  if (getDisplayProductName(product)) score += 20;
   if (product.brands) score += 10;
   if (product.image_front_url || product.image_url || product.imageUrl) score += 8;
   if (product.quantity) score += 6;
@@ -1343,16 +1450,18 @@ function extractQuantityInfo(quantity) {
 
 function getOpenFoodFactsCategory(product) {
   const text = [
+    product.product_name_ja,
+    product.generic_name_ja,
     product.product_name,
     product.generic_name,
     product.categories,
     ...(product.categories_tags || [])
   ].join(" ").toLowerCase();
   const rules = [
-    { category: "お菓子", keywords: ["snack", "chips", "crisps", "chocolate", "cookie", "biscuit", "sweets", "ポテトチップス", "チップス"] },
+    { category: "お菓子", keywords: ["snack", "chips", "crisps", "chocolate", "cookie", "biscuit", "candy", "gummy", "sweets", "ポテトチップス", "チップス"] },
     { category: "飲料", keywords: ["beverage", "drink", "tea", "coffee", "juice", "soda", "water"] },
-    { category: "卵・乳製品", keywords: ["dairy", "milk", "cheese", "yogurt", "butter"] },
-    { category: "米・パン・麺", keywords: ["bread", "rice", "noodle", "pasta", "麺", "パン"] },
+    { category: "卵・乳製品", keywords: ["dairy", "egg", "milk", "cheese", "yogurt", "butter"] },
+    { category: "米・パン・麺", keywords: ["bread", "rice", "noodle", "pasta", "cereal", "麺", "パン"] },
     { category: "冷凍食品", keywords: ["frozen", "ice cream", "アイス", "冷凍"] },
     { category: "調味料", keywords: ["sauce", "seasoning", "condiment", "mayonnaise", "ketchup"] },
     { category: "肉類", keywords: ["meat", "ham", "sausage", "beef", "pork", "chicken"] },
@@ -1544,6 +1653,7 @@ function resetProductForm() {
 function resetQuickForm() {
   els.quickForm.reset();
   document.getElementById("quickProductCategory").dataset.userEdited = "false";
+  updateQuickCategoryTabs();
   document.getElementById("quickPriceDate").value = today();
   document.getElementById("openFoodFactsResults").innerHTML = "";
   document.getElementById("openFoodFactsStatus").textContent = "";
