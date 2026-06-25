@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>買い物価格記録</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -135,9 +135,9 @@
     <section id="dashboard" class="tab-panel">
       <div class="section-heading">
         <h2>最安値一覧</h2>
-        <p>商品ごとの最安店舗、最新価格、平均価格、過去最安値を表示します。</p>
+        <p>商品ごとの最安店舗と最安価格を表示します。商品名を押すと店舗別に比較できます。</p>
       </div>
-      <div id="bestPriceList" class="card-grid"></div>
+      <div id="bestPriceList" class="best-price-list"></div>
     </section>
 
     <section id="products" class="tab-panel">
@@ -293,6 +293,19 @@
   <template id="emptyTemplate">
     <div class="empty">まだデータがありません。まずは登録してみましょう。</div>
   </template>
+
+  <dialog id="priceComparisonDialog" class="price-dialog" aria-labelledby="priceComparisonTitle">
+    <div class="dialog-header">
+      <div>
+        <p class="section-kicker">店舗別価格</p>
+        <h2 id="priceComparisonTitle">商品名</h2>
+      </div>
+      <button type="button" class="dialog-close" id="closePriceComparison" aria-label="閉じる">×</button>
+    </div>
+    <div id="priceComparisonNotice" class="comparison-notice" hidden></div>
+    <div id="priceComparisonList" class="comparison-list"></div>
+    <button type="button" class="secondary dialog-history" id="openPriceHistory">価格履歴を見る</button>
+  </dialog>
 
   <div id="saveToast" class="save-toast" role="status" aria-live="polite" hidden>保存しました</div>
 
