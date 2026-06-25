@@ -108,6 +108,7 @@ let nearbySearchCenter = null;
 let nearbySearchRadiusKm = 3;
 let nearbySearchExpanded = false;
 const searchResponseCache = new Map();
+let bestPriceGroups = [];
 
 const els = {
   tabs: document.querySelectorAll(".tab-button"),
@@ -166,6 +167,12 @@ function bindEvents() {
   document.getElementById("lookupBarcode").addEventListener("click", lookupBarcodeProduct);
   document.getElementById("productName").addEventListener("input", suggestProductCategory);
   document.getElementById("productCategory").addEventListener("input", markProductCategoryEdited);
+  document.getElementById("closePriceComparison").addEventListener("click", closePriceComparison);
+  document.getElementById("openPriceHistory").addEventListener("click", () => {
+    closePriceComparison();
+    showTab("prices");
+  });
+  document.getElementById("priceComparisonDialog").addEventListener("click", closePriceComparisonFromBackdrop);
   bindNumericInputNormalization();
 
   document.getElementById("resetQuick").addEventListener("click", resetQuickForm);
@@ -1800,50 +1807,120 @@ function renderPriceCard(item) {
 }
 
 function renderBestPrices() {
-  const cards = state.products.map((product) => {
-    const records = state.prices.filter((price) => price.productId === product.id);
-    if (!records.length) {
-      return `
-        <article class="card best-card">
-          <h3>${escapeHtml(product.name)}</h3>
-          <p class="memo">価格はまだ登録されていません。</p>
-        </article>
-      `;
-    }
-    const best = [...records].sort((a, b) => a.amount - b.amount || b.date.localeCompare(a.date))[0];
-    const latest = [...records].sort((a, b) => b.date.localeCompare(a.date))[0];
-    const average = Math.round(records.reduce((sum, price) => sum + Number(price.amount), 0) / records.length);
+  bestPriceGroups = buildBestPriceGroups();
+  if (!bestPriceGroups.length) return renderEmpty(els.bestPriceList);
+  els.bestPriceList.innerHTML = bestPriceGroups.map((group, index) => {
+    const best = group.records[0];
     const bestStore = findById(state.stores, best.storeId);
-    const latestStore = findById(state.stores, latest.storeId);
-    const bestUnits = unitPriceLabels(best, product).join(" / ") || "-";
-    const latestUnits = unitPriceLabels(latest, product).join(" / ") || "-";
-    const averageUnits = unitPriceLabels(average, product).join(" / ") || "-";
     return `
-      <article class="card best-card">
-        <h3>${escapeHtml(product.name)}</h3>
-        <div class="best-highlight">
-          <div>
-            <span>最安値</span>
-            <strong class="best-price">${yen(best.amount)}</strong>
-          </div>
-          <div>
-            <span>最安店舗</span>
-            <strong>${escapeHtml(bestStore?.name || "-")}</strong>
-          </div>
+      <article class="card best-row">
+        <button type="button" class="best-product-link" onclick="openPriceComparison(${index})">
+          <span>${escapeHtml(group.displayName)}</span>
+          <small>店舗別の価格を見る</small>
+        </button>
+        <div class="best-row-result">
+          <span>${escapeHtml(bestStore?.name || "店舗不明")}</span>
+          <strong>${yen(best.amount)}</strong>
+          <small>${escapeHtml(best.date || "")}</small>
         </div>
-        <div class="stats">
-          <div class="stat"><span>最新価格</span><strong>${yen(latest.amount)}</strong><br>${escapeHtml(latestStore?.name || "-")}</div>
-          <div class="stat"><span>平均価格</span><strong>${yen(average)}</strong></div>
-          <div class="stat"><span>過去最安値</span><strong>${yen(best.amount)}</strong></div>
-          <div class="stat"><span>最安単価</span><strong>${escapeHtml(bestUnits)}</strong></div>
-          <div class="stat"><span>最新単価</span><strong>${escapeHtml(latestUnits)}</strong></div>
-          <div class="stat"><span>平均単価</span><strong>${escapeHtml(averageUnits)}</strong></div>
-          <div class="stat"><span>記録数</span><strong>${records.length}件</strong></div>
-        </div>
+        ${group.hasDifferentAmounts ? '<p class="amount-warning">内容量が異なります</p>' : ""}
       </article>
     `;
   }).join("");
-  els.bestPriceList.innerHTML = cards || document.getElementById("emptyTemplate").innerHTML;
+}
+
+function buildBestPriceGroups() {
+  const groups = new Map();
+  state.products.forEach((product) => {
+    const key = getProductGroupKey(product);
+    if (!groups.has(key)) groups.set(key, { products: [], records: [] });
+    groups.get(key).products.push(product);
+  });
+  state.prices.forEach((price) => {
+    const product = findById(state.products, price.productId);
+    if (!product) return;
+    const group = groups.get(getProductGroupKey(product));
+    if (group) group.records.push(price);
+  });
+  return [...groups.values()]
+    .filter((group) => group.records.length)
+    .map((group) => {
+      group.records.sort((a, b) => Number(a.amount) - Number(b.amount) || String(b.date).localeCompare(String(a.date)));
+      group.displayName = group.products[0]?.name || "商品名未設定";
+      const amounts = new Set(group.products.map(productAmountSignature).filter(Boolean));
+      group.hasDifferentAmounts = amounts.size > 1;
+      return group;
+    })
+    .sort((a, b) => a.displayName.localeCompare(b.displayName, "ja"));
+}
+
+function getProductGroupKey(product) {
+  const barcode = normalizeBarcodeValue(product.barcode);
+  if (barcode) return `barcode:${barcode.length === 12 ? `0${barcode}` : barcode}`;
+  return `name:${normalizeProductGroupName(product.name)}`;
+}
+
+function normalizeProductGroupName(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (character) => String.fromCharCode(character.charCodeAt(0) - 0xFEE0))
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function productAmountSignature(product) {
+  const amount = product.contentAmount || product.weightGrams || product.unitCount || "";
+  const unit = product.quantityUnit || (product.weightGrams ? "g" : product.unitCount ? "個" : "");
+  return amount ? `${amount}:${unit}` : "";
+}
+
+function openPriceComparison(index) {
+  const group = bestPriceGroups[index];
+  if (!group) return;
+  const dialog = document.getElementById("priceComparisonDialog");
+  const latestByStore = new Map();
+  group.records.forEach((price) => {
+    const current = latestByStore.get(price.storeId);
+    if (!current || String(price.date).localeCompare(String(current.date)) > 0) {
+      latestByStore.set(price.storeId, price);
+    }
+  });
+  const prices = [...latestByStore.values()]
+    .sort((a, b) => Number(a.amount) - Number(b.amount) || String(b.date).localeCompare(String(a.date)));
+  document.getElementById("priceComparisonTitle").textContent = group.displayName;
+  const notice = document.getElementById("priceComparisonNotice");
+  notice.hidden = !group.hasDifferentAmounts;
+  notice.textContent = group.hasDifferentAmounts
+    ? "内容量が異なる記録があります。販売価格と単価をあわせて確認してください。"
+    : "";
+  document.getElementById("priceComparisonList").innerHTML = prices.map((price, priceIndex) => {
+    const product = findById(state.products, price.productId);
+    const store = findById(state.stores, price.storeId);
+    const amounts = productAmountLabels(product).join(" / ");
+    const units = unitPriceLabels(price, product).join(" / ");
+    return `
+      <article class="comparison-row">
+        <span class="comparison-rank">${priceIndex + 1}</span>
+        <div>
+          <strong>${escapeHtml(store?.name || "店舗不明")}</strong>
+          <p>${escapeHtml([price.date, amounts, units].filter(Boolean).join(" ・ "))}</p>
+        </div>
+        <strong class="comparison-price">${yen(price.amount)}</strong>
+      </article>
+    `;
+  }).join("");
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
+}
+
+function closePriceComparison() {
+  const dialog = document.getElementById("priceComparisonDialog");
+  if (typeof dialog.close === "function" && dialog.open) dialog.close();
+  else dialog.removeAttribute("open");
+}
+
+function closePriceComparisonFromBackdrop(event) {
+  if (event.target === event.currentTarget) closePriceComparison();
 }
 
 function renderEmpty(target) {
