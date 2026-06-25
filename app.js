@@ -283,9 +283,15 @@ function escapeHtml(value) {
 }
 
 function showTab(tabId) {
-  els.tabs.forEach((button) => button.classList.toggle("active", button.dataset.tab === tabId));
+  const moreTabs = ["stores", "prices", "charts", "data"];
+  els.tabs.forEach((button) => {
+    const active = button.dataset.tab === tabId
+      || (button.dataset.tab === "more" && moreTabs.includes(tabId));
+    button.classList.toggle("active", active);
+  });
   els.panels.forEach((panel) => panel.classList.toggle("active", panel.id === tabId));
   if (tabId === "charts") drawCharts();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function render() {
@@ -724,6 +730,7 @@ function saveQuickEntry(event) {
   state.prices.push(price);
   resetQuickForm();
   render();
+  showSaveToast("価格を記録しました");
 }
 
 function upsertProductFromQuickForm(productName) {
@@ -1499,6 +1506,7 @@ function saveProduct(event) {
   upsert(state.products, item);
   resetProductForm();
   render();
+  showSaveToast("商品を保存しました");
 }
 
 function suggestProductCategory() {
@@ -1619,6 +1627,7 @@ function saveStore(event) {
   upsert(state.stores, item);
   resetStoreForm();
   render();
+  showSaveToast("店舗を保存しました");
 }
 
 function savePrice(event) {
@@ -1636,6 +1645,24 @@ function savePrice(event) {
   upsert(state.prices, item);
   resetPriceForm();
   render();
+  showSaveToast("価格を保存しました");
+}
+
+let saveToastTimer = null;
+
+function showSaveToast(message) {
+  const toast = document.getElementById("saveToast");
+  if (!toast) return;
+  window.clearTimeout(saveToastTimer);
+  toast.textContent = message;
+  toast.hidden = false;
+  requestAnimationFrame(() => toast.classList.add("visible"));
+  saveToastTimer = window.setTimeout(() => {
+    toast.classList.remove("visible");
+    window.setTimeout(() => {
+      toast.hidden = true;
+    }, 220);
+  }, 1800);
 }
 
 function upsert(list, item) {
